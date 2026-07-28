@@ -278,6 +278,53 @@
           </div>
         </div>
 
+        <!-- PDF Solution Keys & Attachments Manager -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm overflow-hidden">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              PDF Solution Keys & Attachments (Selected Week)
+            </h3>
+            <span class="text-xs font-bold px-2.5 py-1 bg-slate-100 rounded-full text-slate-600">
+              Files: <span id="res-list-count">0</span>
+            </span>
+          </div>
+
+          <!-- Add Resource Form -->
+          <form id="add-resource-form" action="javascript:void(0);" class="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <div class="sm:col-span-5">
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Document Title</label>
+              <input type="text" id="res-title" required placeholder="e.g. Week 1 Official Answer Key.pdf" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-xl p-2.5">
+            </div>
+            <div class="sm:col-span-5">
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">PDF File URL / Download Link</label>
+              <input type="url" id="res-url" required placeholder="https://drive.google.com/... or PDF link" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-xl p-2.5">
+            </div>
+            <div class="sm:col-span-2 flex items-end">
+              <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition">
+                + Attach PDF
+              </button>
+            </div>
+          </form>
+
+          <!-- Resources Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500">
+                  <th class="py-3 px-4">#</th>
+                  <th class="py-3 px-4">Document Title</th>
+                  <th class="py-3 px-4">Download Link</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resources-table-body">
+                <tr><td colspan="4" class="text-center py-6 text-gray-400 text-sm">Select a course and week to view PDF attachments.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- TAB 2: BULK TEXT IMPORTER (PASTE QUESTIONS) -->

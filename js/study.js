@@ -2,7 +2,7 @@
 //  QuizTEL — Study Mode (study.js)
 // ============================================================
 
-import { loadCourses, loadWeeks, loadQuestions, populateSelect, showToast, showSpinner, hideSpinner } from "./app.js";
+import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner } from "./app.js";
 import { trackPageView } from "./analytics.js";
 
 const courseSelect  = document.getElementById("course-select");
@@ -10,6 +10,8 @@ const weekSelect    = document.getElementById("week-select");
 const questionsArea = document.getElementById("questions-area");
 const qCount        = document.getElementById("q-count");
 const emptyState    = document.getElementById("empty-state");
+const resourcesArea = document.getElementById("resources-area");
+const resourcesList = document.getElementById("resources-list");
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -38,6 +40,7 @@ courseSelect.addEventListener("change", async () => {
   questionsArea.innerHTML = "";
   if (qCount) qCount.textContent = "";
   if (emptyState) emptyState.classList.remove("hidden");
+  if (resourcesArea) resourcesArea.classList.add("hidden");
 
   try {
     const weeks = await loadWeeks(cid);
@@ -48,22 +51,43 @@ courseSelect.addEventListener("change", async () => {
   }
 });
 
-// ── Week selection → automatically fetch and render questions ──
+// ── Week selection → automatically fetch questions & resources ──
 weekSelect.addEventListener("change", async () => {
   const cid = courseSelect.value;
   const wid = weekSelect.value;
   if (!cid || !wid) return;
 
-  showSpinner("Fetching questions…");
+  showSpinner("Fetching questions and attachments…");
   if (emptyState) emptyState.classList.add("hidden");
   questionsArea.innerHTML = "";
   if (qCount) qCount.textContent = "";
+  if (resourcesArea) resourcesArea.classList.add("hidden");
 
   try {
-    const questions = await loadQuestions(cid, wid);
+    const [questions, resources] = await Promise.all([
+      loadQuestions(cid, wid),
+      loadResources(cid, wid)
+    ]);
     hideSpinner();
 
-    if (questions.length === 0) {
+    // Render downloadable PDF resources if available
+    if (resources && resources.length > 0) {
+      if (resourcesArea) resourcesArea.classList.remove("hidden");
+      if (resourcesList) {
+        resourcesList.innerHTML = resources.map(r => `
+          <a href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between p-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white transition text-xs font-semibold group">
+            <span class="truncate max-w-[240px] sm:max-w-xs" title="${escHtml(r.title)}">${escHtml(r.title)}</span>
+            <span class="px-3 py-1 bg-amber-400 text-indigo-950 font-bold rounded-lg group-hover:scale-105 transition flex items-center gap-1 flex-shrink-0">
+              Download PDF &darr;
+            </span>
+          </a>
+        `).join("");
+      }
+    } else {
+      if (resourcesArea) resourcesArea.classList.add("hidden");
+    }
+
+    if (questions.length === 0 && (!resources || resources.length === 0)) {
       if (emptyState) emptyState.classList.remove("hidden");
       showToast("No questions found for this week.", "info");
       return;

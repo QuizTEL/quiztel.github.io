@@ -33,6 +33,13 @@ export async function loadQuestions(courseId, weekId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+/** Fetch all PDF/solution resources for a week → [{ id, title, url }] */
+export async function loadResources(courseId, weekId) {
+  const ref  = collection(db, "courses", courseId, "weeks", weekId, "resources");
+  const snap = await getDocs(ref);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 /** Fetch ALL questions across ALL weeks for a course → [{ ...question, weekId, weekName }] */
 export async function loadAllQuestions(courseId) {
   const weeks = await loadWeeks(courseId);

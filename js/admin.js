@@ -22,7 +22,7 @@ import {
   orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { loadCourses, loadWeeks, loadQuestions, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
+import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
 import { subscribeToAnalytics, trackPageView } from "./analytics.js";
 import { parseFile } from "./file-parser.js";
 
@@ -55,7 +55,7 @@ const addWeekForm     = document.getElementById("add-week-form");
 const newWeekName     = document.getElementById("new-week-name");
 const deleteWeekBtn   = document.getElementById("delete-week-btn");
 
-// CMS — Questions
+// CMS — Questions & Resources
 const questionForm    = document.getElementById("question-form");
 const qIdInput        = document.getElementById("q-id");
 const qTextInput      = document.getElementById("q-text");
@@ -69,6 +69,13 @@ const cancelEditBtn   = document.getElementById("cancel-edit-btn");
 
 const questionsTableBody = document.getElementById("questions-table-body");
 const qListCount         = document.getElementById("q-list-count");
+
+// PDF Resources DOM
+const addResourceForm    = document.getElementById("add-resource-form");
+const resTitleInput      = document.getElementById("res-title");
+const resUrlInput        = document.getElementById("res-url");
+const resourcesTableBody = document.getElementById("resources-table-body");
+const resListCount       = document.getElementById("res-list-count");
 
 // Bulk Import DOM
 const importCourseSelect = document.getElementById("import-course-select");
@@ -223,7 +230,101 @@ weekSelect.addEventListener("change", async () => {
   const wid = weekSelect.value;
   deleteWeekBtn.disabled = !wid;
   await refreshQuestionsList();
+  await refreshResourcesList();
 });
+
+// ── PDF Resources CRUD ─────────────────────────────────────────
+async function refreshResourcesList() {
+  const cid = courseSelect.value;
+  const wid = weekSelect.value;
+  if (!cid || !wid) return;
+
+  try {
+    const resources = await loadResources(cid, wid);
+    if (resListCount) resListCount.textContent = resources.length;
+    renderResourcesTable(resources);
+  } catch (err) {
+    showToast("Failed to load PDF resources: " + err.message, "error");
+  }
+}
+
+function renderResourcesTable(resources) {
+  if (resources.length === 0) {
+    resourcesTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-400 text-sm">No PDF answer keys or attachment files added to this week yet.</td></tr>`;
+    return;
+  }
+
+  resourcesTableBody.innerHTML = resources.map((r, idx) => `
+    <tr class="border-b border-gray-100 hover:bg-gray-50 transition text-sm">
+      <td class="py-3 px-4 font-semibold text-gray-600">${idx + 1}</td>
+      <td class="py-3 px-4 text-gray-800 font-medium">${escHtml(r.title)}</td>
+      <td class="py-3 px-4">
+        <a href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline font-semibold text-xs inline-flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          View / Open Link
+        </a>
+      </td>
+      <td class="py-3 px-4 text-right">
+        <button data-action="delete-res" data-id="${r.id}" class="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 font-semibold rounded-lg text-xs transition">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+
+  resourcesTableBody.querySelectorAll("button[data-action='delete-res']").forEach(btn => {
+    btn.addEventListener("click", () => deleteResource(btn.dataset.id));
+  });
+}
+
+if (addResourceForm) {
+  addResourceForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const cid = courseSelect.value;
+    const wid = weekSelect.value;
+    if (!cid || !wid) {
+      showToast("Please select a Course and Week first!", "warning");
+      return;
+    }
+
+    const title = resTitleInput.value.trim();
+    const url   = resUrlInput.value.trim();
+    if (!title || !url) return;
+
+    showSpinner("Attaching PDF Resource...");
+    try {
+      await addDoc(collection(db, "courses", cid, "weeks", wid, "resources"), {
+        title,
+        url,
+        createdAt: new Date().toISOString()
+      });
+      showToast(`PDF Resource "${title}" attached!`, "success");
+      addResourceForm.reset();
+      await refreshResourcesList();
+    } catch (err) {
+      showToast("Failed to attach PDF resource: " + err.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  });
+}
+
+async function deleteResource(resId) {
+  const cid = courseSelect.value;
+  const wid = weekSelect.value;
+  if (!cid || !wid || !resId) return;
+
+  if (!confirm("Are you sure you want to remove this PDF resource?")) return;
+
+  showSpinner("Deleting PDF Resource...");
+  try {
+    await deleteDoc(doc(db, "courses", cid, "weeks", wid, "resources", resId));
+    showToast("PDF Resource deleted.", "info");
+    await refreshResourcesList();
+  } catch (err) {
+    showToast("Failed to delete resource: " + err.message, "error");
+  } finally {
+    hideSpinner();
+  }
+}
 
 // Course selection change in Import tab
 importCourseSelect.addEventListener("change", async () => {
