@@ -114,29 +114,7 @@
       </div>
     </section>
 
-    <!-- Platform Stats Strip -->
-    <section class="py-12 bg-white border-y border-slate-200/80">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-slate-200">
-          
-          <div class="pt-4 md:pt-0">
-            <span id="hero-views" class="block text-3xl sm:text-4xl font-extrabold text-indigo-600">0</span>
-            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider mt-1 block">Total Page Views</span>
-          </div>
 
-          <div class="pt-4 md:pt-0">
-            <span id="hero-visitors" class="block text-3xl sm:text-4xl font-extrabold text-amber-500">0</span>
-            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider mt-1 block">Unique Visitors</span>
-          </div>
-
-          <div class="pt-4 md:pt-0">
-            <span id="hero-attempts" class="block text-3xl sm:text-4xl font-extrabold text-emerald-500">0</span>
-            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider mt-1 block">Quizzes Attempted</span>
-          </div>
-
-        </div>
-      </div>
-    </section>
   </main>
 
   <!-- Footer -->
@@ -153,19 +131,14 @@
 
   <!-- Script setup -->
   <script type="module">
-    import { loadCourses, fmt } from "./js/app.js";
-    import { fetchAnalytics, trackPageView } from "./js/analytics.js";
+    import { loadCourses } from "./js/app.js";
+    import { trackPageView } from "./js/analytics.js";
 
     document.getElementById("current-year").textContent = new Date().getFullYear();
 
     async function initPage() {
       trackPageView();
 
-      // Load analytics
-      const stats = await fetchAnalytics();
-      document.getElementById("hero-views").textContent    = fmt(stats.pageViews);
-      document.getElementById("hero-visitors").textContent = fmt(stats.uniqueVisitors);
-      document.getElementById("hero-attempts").textContent = fmt(stats.quizAttempts);
 
       // Load courses
       const grid = document.getElementById("courses-grid");
