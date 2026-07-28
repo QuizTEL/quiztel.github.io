@@ -124,6 +124,8 @@ loginForm.addEventListener("submit", async (e) => {
     showToast("Successfully logged in as Admin!", "success");
     loginForm.reset();
   } catch (err) {
+    console.error("Firebase Login Error:", err);
+    alert("Login Error: " + err.message);
     showToast("Login failed: " + err.message, "error");
   } finally {
     hideSpinner();
