@@ -214,7 +214,9 @@ function renderQuestion() {
 
   // Navigation
   if (prevBtn) prevBtn.disabled = currentQIdx === 0;
-  if (nextBtn) nextBtn.disabled = currentQIdx === total - 1;
+  if (nextBtn) {
+    nextBtn.classList.toggle("hidden", currentQIdx === total - 1);
+  }
   if (submitBtn) {
     const answered = userAnswers.filter(a => a !== null).length;
     submitBtn.textContent = `Submit Quiz (${answered}/${total} answered)`;
