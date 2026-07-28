@@ -24,7 +24,7 @@ import {
 
 import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
 import { subscribeToAnalytics, trackPageView } from "./analytics.js";
-import { parseFile } from "./file-parser.js";
+import { parseQuestionsFromText } from "./file-parser.js";
 
 // ── DOM Elements ──────────────────────────────────────────────
 const authSection     = document.getElementById("auth-section");
