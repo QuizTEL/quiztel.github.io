@@ -64,10 +64,15 @@ weekSelect.addEventListener("change", async () => {
   if (resourcesArea) resourcesArea.classList.add("hidden");
 
   try {
-    const [questions, resources] = await Promise.all([
-      loadQuestions(cid, wid),
-      loadResources(cid, wid)
-    ]);
+    const questions = await loadQuestions(cid, wid);
+    
+    let resources = [];
+    try {
+      resources = await loadResources(cid, wid);
+    } catch (e) {
+      console.warn("Could not load resources:", e);
+    }
+    
     hideSpinner();
 
     // Render downloadable PDF resources if available
