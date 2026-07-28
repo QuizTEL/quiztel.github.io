@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuizTEL — NPTEL Course Assessment & Quiz Platform</title>
+  <meta name="description" content="Master your NPTEL courses with QuizTEL. Study questions with instant explanations or challenge yourself with our custom quiz engine.">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="glass-header sticky top-0 z-40 border-b border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="index.html" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:scale-105 transition duration-200">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+        </div>
+        <div>
+          <span class="text-xl font-extrabold text-slate-900 tracking-tight">Quiz<span class="text-indigo-600">TEL</span></span>
+          <span class="block text-[10px] uppercase font-bold tracking-widest text-indigo-500 -mt-1">NPTEL Prep</span>
+        </div>
+      </a>
+
+      <!-- Navigation -->
+      <nav class="flex items-center gap-1 sm:gap-2">
+        <a href="study.html" data-nav class="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition duration-150 flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          Study Mode
+        </a>
+        <a href="quiz.html" data-nav class="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition duration-150 flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Quiz Mode
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="flex-1">
+    <section class="relative overflow-hidden py-16 lg:py-24 bg-gradient-mesh border-b border-slate-200/60">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+        
+        <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wider mb-6">
+          <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
+          NPTEL Assessment Platform
+        </span>
+
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight max-w-4xl mx-auto">
+          Ace Your NPTEL Assessments with <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-amber-500">QuizTEL</span>
+        </h1>
+
+        <p class="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          Comprehensive study guides with detailed explanations and randomized smart quizzes to test your understanding week by week.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="study.html" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition duration-200 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            Explore Study Mode
+          </a>
+          <a href="quiz.html" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-base shadow-sm hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition duration-200 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Take a Quiz
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Available Courses Grid -->
+    <section class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Available NPTEL Courses</h2>
+          <p class="text-sm text-slate-500 mt-1">Select a course to start studying or attempting quizzes</p>
+        </div>
+      </div>
+
+      <!-- Course Cards Container -->
+      <div id="courses-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="col-span-full py-12 text-center">
+          <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3"></div>
+          <p class="text-sm font-medium text-slate-500">Loading courses from database...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Platform Stats Strip -->
+    <section class="py-12 bg-white border-y border-slate-200/80">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-slate-200">
+          
+          <div class="pt-4 md:pt-0">
+            <span id="hero-views" class="block text-3xl sm:text-4xl font-extrabold text-indigo-600">0</span>
+            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider mt-1 block">Total Page Views</span>
+          </div>
+
+          <div class="pt-4 md:pt-0">
+            <span id="hero-visitors" class="block text-3xl sm:text-4xl font-extrabold text-amber-500">0</span>
+            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider mt-1 block">Unique Visitors</span>
+          </div>
+
+          <div class="pt-4 md:pt-0">
+            <span id="hero-attempts" class="block text-3xl sm:text-4xl font-extrabold text-emerald-500">0</span>
+            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider mt-1 block">Quizzes Attempted</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-10 border-t border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="flex items-center justify-center gap-2 mb-3">
+        <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-extrabold text-xs">Q</div>
+        <span class="text-lg font-bold text-white tracking-tight">QuizTEL</span>
+      </div>
+      <p class="text-xs text-slate-400 mb-2">Empowering NPTEL Learners with Smart Quizzes & Structured Study Material</p>
+      <p class="text-xs text-slate-500">&copy; <span id="current-year">2026</span> QuizTEL. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Script setup -->
+  <script type="module">
+    import { loadCourses, fmt } from "./js/app.js";
+    import { fetchAnalytics, trackPageView } from "./js/analytics.js";
+
+    document.getElementById("current-year").textContent = new Date().getFullYear();
+
+    async function initPage() {
+      trackPageView();
+
+      // Load analytics
+      const stats = await fetchAnalytics();
+      document.getElementById("hero-views").textContent    = fmt(stats.pageViews);
+      document.getElementById("hero-visitors").textContent = fmt(stats.uniqueVisitors);
+      document.getElementById("hero-attempts").textContent = fmt(stats.quizAttempts);
+
+      // Load courses
+      const grid = document.getElementById("courses-grid");
+      try {
+        const courses = await loadCourses();
+        if (courses.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full bg-white rounded-2xl p-8 text-center border border-slate-200">
+              <p class="text-slate-600 font-medium">No courses available yet.</p>
+              <p class="text-xs text-slate-400 mt-1">Check back later or log in as Admin to add courses.</p>
+            </div>`;
+          return;
+        }
+
+        grid.innerHTML = courses.map(c => `
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 flex flex-col justify-between">
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900 mb-2">${c.name}</h3>
+              <p class="text-xs text-slate-500">Access assignment questions, answer keys, and timed quiz modes for this course.</p>
+            </div>
+            <div class="mt-6 flex items-center gap-3">
+              <a href="study.html" class="flex-1 text-center px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition">Study</a>
+              <a href="quiz.html" class="flex-1 text-center px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition">Quiz</a>
+            </div>
+          </div>
+        `).join("");
+      } catch (err) {
+        grid.innerHTML = `<div class="col-span-full text-red-500 text-center py-6">Failed to load courses. Please check your Firebase configuration.</div>`;
+      }
+    }
+
+    initPage();
+  </script>
+</body>
+</html>
