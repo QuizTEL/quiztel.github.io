@@ -380,6 +380,10 @@ function renderQuestionsTable(questions) {
   });
 }
 
+const qSubmitBtn   = document.getElementById("q-submit-btn");
+const editorTitle  = document.getElementById("editor-title");
+const qEditorCard  = document.getElementById("question-editor-card");
+
 function editQuestion(qid, questions) {
   const q = questions.find(item => item.id === qid);
   if (!q) return;
@@ -393,15 +397,24 @@ function editQuestion(qid, questions) {
   correctOptSelect.value = q.correctOptionIndex;
   qExplInput.value      = q.explanation || "";
 
+  if (qSubmitBtn)  qSubmitBtn.textContent  = "✓ Update Question in Firestore";
+  if (editorTitle) editorTitle.textContent = "Edit Selected Question";
+  if (qEditorCard) qEditorCard.classList.add("ring-2", "ring-indigo-500", "border-indigo-500");
+
   cancelEditBtn.classList.remove("hidden");
   qTextInput.scrollIntoView({ behavior: "smooth" });
 }
 
-cancelEditBtn.addEventListener("click", () => {
+function resetQuestionEditor() {
   questionForm.reset();
   qIdInput.value = "";
+  if (qSubmitBtn)  qSubmitBtn.textContent  = "+ Add New Question";
+  if (editorTitle) editorTitle.textContent = "Manual Question Editor";
+  if (qEditorCard) qEditorCard.classList.remove("ring-2", "ring-indigo-500", "border-indigo-500");
   cancelEditBtn.classList.add("hidden");
-});
+}
+
+cancelEditBtn.addEventListener("click", resetQuestionEditor);
 
 questionForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -436,9 +449,7 @@ questionForm.addEventListener("submit", async (e) => {
       showToast("Question created successfully!", "success");
     }
 
-    questionForm.reset();
-    qIdInput.value = "";
-    cancelEditBtn.classList.add("hidden");
+    resetQuestionEditor();
     await refreshQuestionsList();
   } catch (err) {
     showToast("Failed to save question: " + err.message, "error");

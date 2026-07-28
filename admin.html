@@ -194,11 +194,11 @@
         </div>
 
         <!-- Question Form Card -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div id="question-editor-card" class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm transition-all duration-200">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
               <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 text-xs font-extrabold flex items-center justify-center">3</span>
-              Manual Question Editor
+              <span id="editor-title">Manual Question Editor</span>
             </h3>
             <button id="cancel-edit-btn" class="hidden px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg">Cancel Editing</button>
           </div>
@@ -246,8 +246,8 @@
               </div>
             </div>
 
-            <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-md transition">
-              Save Question to Firestore
+            <button type="submit" id="q-submit-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-md transition">
+              + Add New Question
             </button>
           </form>
         </div>
