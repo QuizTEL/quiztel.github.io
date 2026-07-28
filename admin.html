@@ -26,17 +26,6 @@
     }
   </script>
 
-  <!-- PDF.js CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    if (window.pdfjsLib) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-  </script>
-
-  <!-- Mammoth.js CDN (DOCX parser) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -129,8 +118,8 @@
           Content Management
         </button>
         <button data-tab="import" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-          Bulk File Import (PDF/Word)
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Bulk Text Importer (Paste Questions)
         </button>
         <button data-tab="analytics" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -291,51 +280,57 @@
 
       </div>
 
-      <!-- TAB 2: BULK FILE IMPORT (PDF/WORD) -->
+      <!-- TAB 2: BULK TEXT IMPORTER (PASTE QUESTIONS) -->
       <div data-tab-content="import" class="hidden space-y-6">
         <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
           
-          <h2 class="text-xl font-extrabold text-slate-900 mb-2">Bulk Document Parser & Batch Importer</h2>
-          <p class="text-sm text-slate-500 mb-6">Upload a structured <code class="px-1.5 py-0.5 bg-slate-100 rounded font-mono text-xs">.pdf</code> or <code class="px-1.5 py-0.5 bg-slate-100 rounded font-mono text-xs">.docx</code> assignment file to automatically extract and upload questions to Firestore.</p>
+          <h2 class="text-xl font-extrabold text-slate-900 mb-2">Bulk Question Importer (Text Paste)</h2>
+          <p class="text-sm text-slate-500 mb-6">Paste all your questions (e.g. 10 at once) with options, answers, and explanations into the text box below.</p>
 
-          <!-- Instructions Box -->
-          <div class="p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-xl mb-6 text-xs text-amber-900 space-y-1">
-            <p class="font-bold">Required File Structure Format:</p>
-            <p><code class="font-mono font-bold">Q: What is Cloud Computing?</code></p>
-            <p><code class="font-mono">A) On-demand availability of computer system resources</code></p>
-            <p><code class="font-mono">B) A physical hard drive</code></p>
-            <p><code class="font-mono">C) Local server network</code></p>
-            <p><code class="font-mono">D) None of the above</code></p>
-            <p><code class="font-mono font-bold">Answer: A</code></p>
-            <p><code class="font-mono">Explanation: Cloud computing provides on-demand IT resources over the internet.</code></p>
-          </div>
-
-          <!-- Upload Controls -->
-          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end mb-6">
-            
-            <div class="sm:col-span-4">
+          <!-- Target Course & Week Selection -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Target Course</label>
               <select id="import-course-select" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-xl p-3">
                 <option value="" disabled selected>Select Course...</option>
               </select>
             </div>
 
-            <div class="sm:col-span-4">
+            <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Target Week</label>
               <select id="import-week-select" disabled class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-xl p-3 disabled:opacity-50">
                 <option value="" disabled selected>— Select Course First —</option>
               </select>
             </div>
+          </div>
 
-            <div class="sm:col-span-4">
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Select File (.pdf, .docx)</label>
-              <input type="file" id="import-file-input" accept=".pdf,.docx,.doc" class="w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+          <!-- Paste Textarea -->
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">Paste Question Block Text Here</label>
+              <span class="text-[11px] font-medium text-indigo-600">Supports Q1, Q2... or 1, 2... format</span>
             </div>
+            <textarea id="import-text-input" rows="12" placeholder="Paste your questions here using this structure:
 
+Q1: What is Cloud Computing?
+A) On-demand computing resources
+B) Physical hard drive
+C) Local router
+D) None of the above
+Answer: A
+Explanation: Cloud computing provides on-demand IT resources over the internet.
+
+Q2: Which of the following is IaaS?
+A) Google Docs
+B) Amazon EC2
+C) Salesforce
+D) Heroku
+Answer: B
+Explanation: Amazon EC2 provides virtualized infrastructure." class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs font-mono rounded-xl p-4 focus:ring-2 focus:ring-indigo-500"></textarea>
           </div>
 
           <button id="parse-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-md transition">
-            Parse File Client-Side
+            Parse Pasted Text & Preview Questions
           </button>
 
         </div>

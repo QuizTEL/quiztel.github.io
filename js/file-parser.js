@@ -1,106 +1,62 @@
 // ============================================================
-//  QuizTEL — File Parser (file-parser.js)
-//  Client-side PDF and DOCX parsing using:
-//    • PDF.js  (loaded via CDN in admin.html)
-//    • Mammoth.js (loaded via CDN in admin.html)
-//
-//  Expected document format:
-//  ─────────────────────────
-//  Q: What is the capital of France?
-//  A) Berlin
-//  B) Paris
-//  C) Rome
-//  D) Madrid
-//  Answer: B
-//  Explanation: Paris is the capital city of France.
-//
-//  (Blank line between questions is optional)
+//  QuizTEL — Bulk Text Parser (file-parser.js)
+//  Parses pasted text containing questions, options, answer,
+//  and explanation into structured Firestore question objects.
 // ============================================================
 
-// ── Text Extractor — PDF ─────────────────────────────────────
-export async function extractTextFromPDF(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const typedArray = new Uint8Array(e.target.result);
-        // pdfjsLib must be loaded globally via CDN script in admin.html
-        const pdf  = await pdfjsLib.getDocument({ data: typedArray }).promise;
-        let fullText = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page    = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const pageText = content.items.map(item => item.str).join(" ");
-          fullText += pageText + "\n";
-        }
-        resolve(fullText);
-      } catch (err) {
-        reject(new Error("PDF parsing failed: " + err.message));
-      }
-    };
-    reader.onerror = () => reject(new Error("FileReader error"));
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-// ── Text Extractor — DOCX ────────────────────────────────────
-export async function extractTextFromDOCX(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        // mammoth must be loaded globally via CDN script in admin.html
-        const result = await mammoth.extractRawText({ arrayBuffer: e.target.result });
-        resolve(result.value);
-      } catch (err) {
-        reject(new Error("DOCX parsing failed: " + err.message));
-      }
-    };
-    reader.onerror = () => reject(new Error("FileReader error"));
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-// ── Question Parser ───────────────────────────────────────────
 /**
- * Parses raw text into an array of question objects.
- * Supports the structured format described at the top of this file.
- * @param {string} text - Raw extracted text from PDF or DOCX
- * @returns {Array<{text, options, correctOptionIndex, explanation}>}
+ * Parses bulk pasted text into an array of question objects.
+ * 
+ * Supported Format Example:
+ * ─────────────────────────
+ * Q: What is Cloud Computing?
+ * A) On-demand availability of computer system resources
+ * B) A physical hard drive
+ * C) Local server network
+ * D) None of the above
+ * Answer: A
+ * Explanation: Cloud computing provides on-demand IT resources over the internet.
+ * 
+ * (Multiple questions can be pasted together in sequence)
+ * ============================================================
  */
 export function parseQuestionsFromText(text) {
+  if (!text || typeof text !== "string") return [];
+
   const questions = [];
 
-  // Normalize line endings and split into blocks by double newline or "Q:"
-  // Strategy: find each Q: block
-  const blocks = text.split(/(?=Q\s*[:.)]\s)/i).filter(b => b.trim().length > 20);
+  // Split text into individual question blocks using regex matching Q:, Q1:, 1., Question 1:
+  const blocks = text
+    .split(/(?=(?:Q\d*|Question\s*\d*|\d+)\s*[:.)]\s)/i)
+    .map(b => b.trim())
+    .filter(b => b.length > 10);
 
   for (const block of blocks) {
     try {
       const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
       if (!lines.length) continue;
 
-      // Extract question text
-      const qMatch = lines[0].match(/^Q\s*[:.)]?\s*(.+)/i);
-      if (!qMatch) continue;
-      const questionText = qMatch[1].trim();
+      // Extract question text (removes Q:, Q1:, 1., Question 1:)
+      const firstLine = lines[0];
+      const qMatch = firstLine.match(/^(?:Q\d*|Question\s*\d*|\d+)\s*[:.)]?\s*(.+)/i);
+      const questionText = qMatch ? qMatch[1].trim() : firstLine.trim();
 
-      // Extract options
       const options = [];
-      const optionRegex = /^([A-Da-d])\s*[).:\-]\s*(.+)/;
-      const answerRegex = /^Answer\s*[:.]\s*([A-Da-d])/i;
-      const explRegex   = /^Explanation\s*[:.]\s*(.*)/i;
-
       let correctOptionIndex = -1;
-      let explanation = "";
-      let collectingExpl = false;
       let explLines = [];
+      let collectingExpl = false;
+
+      // Option matching: A), A., a), (A), 1), 1.
+      const optionRegex = /^(?:([A-Da-d])|(\d))\s*[).:\-]\s*(.+)/;
+      // Answer matching: Answer: A, Ans: B, Correct Answer: 1
+      const answerRegex = /^(?:Answer|Ans|Correct\s*Answer)\s*[:.\-]\s*([A-Da-d1-4])/i;
+      // Explanation matching: Explanation: ..., Exp: ..., Reason: ...
+      const explRegex   = /^(?:Explanation|Exp|Reason|Note)\s*[:.\-]\s*(.*)/i;
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
 
         if (collectingExpl) {
-          // Keep collecting explanation lines until next block marker
           if (answerRegex.test(line) || optionRegex.test(line)) {
             collectingExpl = false;
           } else {
@@ -109,33 +65,35 @@ export function parseQuestionsFromText(text) {
           }
         }
 
-        const optMatch = line.match(optionRegex);
-        const ansMatch = line.match(answerRegex);
+        const optMatch  = line.match(optionRegex);
+        const ansMatch  = line.match(answerRegex);
         const explMatch = line.match(explRegex);
 
-        if (optMatch) {
-          options.push(optMatch[2].trim());
-        } else if (ansMatch) {
-          const letter = ansMatch[1].toUpperCase();
-          correctOptionIndex = "ABCD".indexOf(letter);
+        if (ansMatch) {
+          const val = ansMatch[1].toUpperCase();
+          if ("ABCD".includes(val)) {
+            correctOptionIndex = "ABCD".indexOf(val);
+          } else if ("1234".includes(val)) {
+            correctOptionIndex = parseInt(val) - 1;
+          }
         } else if (explMatch) {
-          const firstLine = explMatch[1].trim();
-          if (firstLine) explLines.push(firstLine);
+          const firstExpl = explMatch[1].trim();
+          if (firstExpl) explLines.push(firstExpl);
           collectingExpl = true;
+        } else if (optMatch) {
+          const optText = optMatch[3].trim();
+          options.push(optText);
         }
       }
 
-      explanation = explLines.join(" ").trim();
+      const explanation = explLines.join(" ").trim();
 
-      // Validate: must have question, 4 options, valid answer
-      if (
-        questionText &&
-        options.length >= 2 &&
-        correctOptionIndex >= 0 &&
-        correctOptionIndex < options.length
-      ) {
-        // Pad to 4 options if fewer
-        while (options.length < 4) options.push("");
+      // Validate question: requires text, at least 2 options, and a valid correct answer
+      if (questionText && options.length >= 2 && correctOptionIndex >= 0 && correctOptionIndex < options.length) {
+        // Ensure array has 4 options
+        while (options.length < 4) {
+          options.push("None of the above");
+        }
 
         questions.push({
           text:               questionText,
@@ -144,40 +102,9 @@ export function parseQuestionsFromText(text) {
           explanation:        explanation || "No explanation provided."
         });
       }
-    } catch {
-      // Skip malformed blocks silently
-      continue;
+    } catch (e) {
+      console.warn("Skipped malformed question block:", e);
     }
-  }
-
-  return questions;
-}
-
-// ── Main entry point ──────────────────────────────────────────
-/**
- * Parse a File object (PDF or DOCX) and return question objects.
- * @param {File} file
- * @returns {Promise<Array>}
- */
-export async function parseFile(file) {
-  const ext = file.name.split(".").pop().toLowerCase();
-  let text = "";
-
-  if (ext === "pdf") {
-    text = await extractTextFromPDF(file);
-  } else if (ext === "docx" || ext === "doc") {
-    text = await extractTextFromDOCX(file);
-  } else {
-    throw new Error("Unsupported file type. Please upload a .pdf or .docx file.");
-  }
-
-  const questions = parseQuestionsFromText(text);
-
-  if (questions.length === 0) {
-    throw new Error(
-      "No questions found. Make sure your document follows the required format:\n" +
-      "Q: <question>\nA) <option>\nB) <option>\nC) <option>\nD) <option>\nAnswer: A\nExplanation: <text>"
-    );
   }
 
   return questions;

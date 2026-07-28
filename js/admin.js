@@ -73,7 +73,7 @@ const qListCount         = document.getElementById("q-list-count");
 // Bulk Import DOM
 const importCourseSelect = document.getElementById("import-course-select");
 const importWeekSelect   = document.getElementById("import-week-select");
-const importFileInput    = document.getElementById("import-file-input");
+const importTextInput    = document.getElementById("import-text-input");
 const parseBtn           = document.getElementById("parse-btn");
 const importPreviewArea  = document.getElementById("import-preview-area");
 const previewTableBody   = document.getElementById("preview-table-body");
@@ -466,22 +466,29 @@ async function deleteQuestion(qid) {
   }
 }
 
-// ── Bulk Document Import ──────────────────────────────────────
-parseBtn.addEventListener("click", async () => {
-  const file = importFileInput.files[0];
-  if (!file) {
-    showToast("Please select a PDF or DOCX file first.", "warning");
+// ── Bulk Document / Text Import ───────────────────────────────
+parseBtn.addEventListener("click", () => {
+  const text = importTextInput ? importTextInput.value.trim() : "";
+  if (!text) {
+    showToast("Please paste your question text into the box first.", "warning");
     return;
   }
 
-  showSpinner("Parsing file...");
+  showSpinner("Parsing text questions...");
   try {
-    parsedQuestionsToSave = await parseFile(file);
+    parsedQuestionsToSave = parseQuestionsFromText(text);
+
+    if (!parsedQuestionsToSave.length) {
+      showToast("No valid questions found in pasted text. Make sure questions have Q:, options A/B/C/D, and Answer: A.", "warning");
+      importPreviewArea.classList.add("hidden");
+      return;
+    }
+
     renderImportPreview(parsedQuestionsToSave);
     importPreviewArea.classList.remove("hidden");
     showToast(`Successfully parsed ${parsedQuestionsToSave.length} questions!`, "success");
   } catch (err) {
-    showToast(err.message, "error");
+    showToast("Parsing error: " + err.message, "error");
     importPreviewArea.classList.add("hidden");
   } finally {
     hideSpinner();
@@ -540,11 +547,11 @@ saveBatchBtn.addEventListener("click", async () => {
       await batch.commit();
     }
 
-    showToast(`Successfully saved all ${parsedQuestionsToSave.length} questions!`, "success");
+    showToast(`Successfully saved all ${parsedQuestionsToSave.length} questions to Firestore!`, "success");
 
     // Reset import tab
     parsedQuestionsToSave = [];
-    importFileInput.value = "";
+    if (importTextInput) importTextInput.value = "";
     importPreviewArea.classList.add("hidden");
 
     // If CMS course & week match, refresh questions list
