@@ -28,28 +28,17 @@ function getTodayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ── Ensure the analytics document exists ──────────────────────
-async function ensureAnalyticsDoc() {
-  const snap = await getDoc(ANALYTICS_DOC);
-  if (!snap.exists()) {
-    await setDoc(ANALYTICS_DOC, {
-      pageViews:      0,
-      uniqueVisitors: 0,
-      quizAttempts:   0
-    });
-  }
-}
+// Removed ensureAnalyticsDoc because getDoc can fail for unauthenticated visitors due to Firestore rules.
+// Using setDoc with { merge: true } directly handles document creation.
 
 // ── Track page view + unique visitor on every page load ───────
 export async function trackPageView() {
   try {
-    await ensureAnalyticsDoc();
     const today = getTodayStr();
     const dailyRef = doc(DAILY_COLLECTION, today);
-    await setDoc(dailyRef, { date: today }, { merge: true });
 
     const updates = { pageViews: increment(1) };
-    const dailyUpdates = { pageViews: increment(1) };
+    const dailyUpdates = { pageViews: increment(1), date: today };
 
     if (!localStorage.getItem(VISITED_KEY)) {
       updates.uniqueVisitors = increment(1);
@@ -57,8 +46,8 @@ export async function trackPageView() {
       localStorage.setItem(VISITED_KEY, "1");
     }
 
-    await updateDoc(ANALYTICS_DOC, updates);
-    await updateDoc(dailyRef, dailyUpdates);
+    await setDoc(ANALYTICS_DOC, updates, { merge: true });
+    await setDoc(dailyRef, dailyUpdates, { merge: true });
   } catch (err) {
     console.warn("Analytics tracking failed:", err.message);
   }
@@ -67,13 +56,11 @@ export async function trackPageView() {
 // ── Increment quiz attempts counter ───────────────────────────
 export async function incrementQuizAttempts() {
   try {
-    await ensureAnalyticsDoc();
     const today = getTodayStr();
     const dailyRef = doc(DAILY_COLLECTION, today);
-    await setDoc(dailyRef, { date: today }, { merge: true });
 
-    await updateDoc(ANALYTICS_DOC, { quizAttempts: increment(1) });
-    await updateDoc(dailyRef, { quizAttempts: increment(1) });
+    await setDoc(ANALYTICS_DOC, { quizAttempts: increment(1) }, { merge: true });
+    await setDoc(dailyRef, { quizAttempts: increment(1), date: today }, { merge: true });
   } catch (err) {
     console.warn("Quiz attempt tracking failed:", err.message);
   }
