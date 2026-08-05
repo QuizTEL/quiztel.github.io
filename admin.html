@@ -8,6 +8,10 @@
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <script>
     tailwind.config = {
       theme: {
@@ -411,6 +415,14 @@ Explanation: Amazon EC2 provides virtualized infrastructure." class="w-full bg-s
 
       <!-- TAB 3: LIVE ANALYTICS DASHBOARD -->
       <div data-tab-content="analytics" class="hidden space-y-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-extrabold text-slate-900">Live Traffic & Usage</h2>
+          <button id="generate-report-btn" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Generate CSV Report
+          </button>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex items-center gap-4">
@@ -443,6 +455,18 @@ Explanation: Amazon EC2 provides virtualized infrastructure." class="w-full bg-s
             </div>
           </div>
 
+        </div>
+
+        <!-- Charts Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-900 mb-4">Daily Page Views (Last 30 Days)</h3>
+            <canvas id="viewsChart" class="w-full h-64"></canvas>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-900 mb-4">Daily Unique Visitors & Attempts</h3>
+            <canvas id="visitorsChart" class="w-full h-64"></canvas>
+          </div>
         </div>
       </div>
 
