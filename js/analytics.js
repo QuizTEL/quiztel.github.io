@@ -1,21 +1,32 @@
 // ============================================================
 //  QuizTEL — Analytics Module
 //  Tracks page views, unique visitors, and quiz attempts
-//  using Firestore atomic increments.
+//  using Firestore atomic increments (Global + Daily).
 // ============================================================
 
 import { db } from "./firebase-config.js";
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   increment,
-  onSnapshot
+  onSnapshot,
+  query,
+  orderBy,
+  limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const ANALYTICS_DOC = doc(db, "analytics", "traffic");
+const DAILY_COLLECTION = collection(db, "analytics_daily");
 const VISITED_KEY   = "quiztel_visited";
+
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 // ── Ensure the analytics document exists ──────────────────────
 async function ensureAnalyticsDoc() {
@@ -33,15 +44,21 @@ async function ensureAnalyticsDoc() {
 export async function trackPageView() {
   try {
     await ensureAnalyticsDoc();
+    const today = getTodayStr();
+    const dailyRef = doc(DAILY_COLLECTION, today);
+    await setDoc(dailyRef, { date: today }, { merge: true });
 
     const updates = { pageViews: increment(1) };
+    const dailyUpdates = { pageViews: increment(1) };
 
     if (!localStorage.getItem(VISITED_KEY)) {
       updates.uniqueVisitors = increment(1);
+      dailyUpdates.uniqueVisitors = increment(1);
       localStorage.setItem(VISITED_KEY, "1");
     }
 
     await updateDoc(ANALYTICS_DOC, updates);
+    await updateDoc(dailyRef, dailyUpdates);
   } catch (err) {
     console.warn("Analytics tracking failed:", err.message);
   }
@@ -51,7 +68,12 @@ export async function trackPageView() {
 export async function incrementQuizAttempts() {
   try {
     await ensureAnalyticsDoc();
+    const today = getTodayStr();
+    const dailyRef = doc(DAILY_COLLECTION, today);
+    await setDoc(dailyRef, { date: today }, { merge: true });
+
     await updateDoc(ANALYTICS_DOC, { quizAttempts: increment(1) });
+    await updateDoc(dailyRef, { quizAttempts: increment(1) });
   } catch (err) {
     console.warn("Quiz attempt tracking failed:", err.message);
   }
@@ -65,13 +87,38 @@ export function subscribeToAnalytics(callback) {
   });
 }
 
-// ── Fetch analytics once ──────────────────────────────────────
-export async function fetchAnalytics() {
+// ── Fetch daily analytics for charts ──────────────────────────
+export async function fetchDailyAnalytics(days = 30) {
   try {
-    await ensureAnalyticsDoc();
-    const snap = await getDoc(ANALYTICS_DOC);
-    return snap.data() || { pageViews: 0, uniqueVisitors: 0, quizAttempts: 0 };
+    const q = query(DAILY_COLLECTION, orderBy("date", "desc"), limit(days));
+    const snap = await getDocs(q);
+    const results = snap.docs.map(d => d.data());
+    return results.reverse(); // Return in chronological order
   } catch (err) {
-    return { pageViews: 0, uniqueVisitors: 0, quizAttempts: 0 };
+    console.warn("Failed to fetch daily analytics:", err.message);
+    return [];
+  }
+}
+
+// ── Generate CSV Report ───────────────────────────────────────
+export async function generateCSVReport() {
+  try {
+    const dailyData = await fetchDailyAnalytics(365);
+    let csv = "Date,Page Views,Unique Visitors,Quiz Attempts\n";
+    
+    for (const row of dailyData) {
+      csv += `${row.date},${row.pageViews || 0},${row.uniqueVisitors || 0},${row.quizAttempts || 0}\n`;
+    }
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `QuizTEL_Analytics_${getTodayStr()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to generate report:", err);
+    throw err;
   }
 }
