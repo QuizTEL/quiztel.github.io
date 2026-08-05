@@ -26,11 +26,17 @@ export async function loadWeeks(courseId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/** Fetch all questions for a week → [{ id, text, options, correctOptionIndex, explanation }] */
+/** Fetch all questions for a week → [{ id, text, options, correctOptionIndex, explanation, order }] */
 export async function loadQuestions(courseId, weekId) {
   const ref  = collection(db, "courses", courseId, "weeks", weekId, "questions");
   const snap = await getDocs(ref);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return questions.sort((a, b) => {
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order;
+    }
+    return a.id.localeCompare(b.id);
+  });
 }
 
 /** Fetch all PDF/solution resources for a week → [{ id, title, url }] */
