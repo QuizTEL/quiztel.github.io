@@ -23,7 +23,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
-import { subscribeToAnalytics, trackPageView } from "./analytics.js";
+import { subscribeToAnalytics, trackPageView, fetchDailyAnalytics, generateCSVReport } from "./analytics.js";
 import { parseQuestionsFromText } from "./file-parser.js";
 
 // ── DOM Elements ──────────────────────────────────────────────
@@ -43,6 +43,7 @@ const tabContents     = document.querySelectorAll("[data-tab-content]");
 const statViews       = document.getElementById("stat-views");
 const statVisitors    = document.getElementById("stat-visitors");
 const statAttempts    = document.getElementById("stat-attempts");
+const generateReportBtn = document.getElementById("generate-report-btn");
 
 // CMS — Courses & Weeks
 const courseSelect    = document.getElementById("cms-course-select");
@@ -169,10 +170,73 @@ tabBtns.forEach(btn => {
 });
 
 // ── Analytics UI Update ───────────────────────────────────────
+let viewsChart, visitorsChart;
+
+async function renderCharts() {
+  const data = await fetchDailyAnalytics(30);
+  if (!data.length) return;
+  
+  const labels = data.map(d => d.date);
+  const views = data.map(d => d.pageViews || 0);
+  const visitors = data.map(d => d.uniqueVisitors || 0);
+  const attempts = data.map(d => d.quizAttempts || 0);
+
+  const viewsCtx = document.getElementById('viewsChart')?.getContext('2d');
+  const visitorsCtx = document.getElementById('visitorsChart')?.getContext('2d');
+
+  if (!viewsCtx || !visitorsCtx) return;
+
+  if (viewsChart) viewsChart.destroy();
+  viewsChart = new Chart(viewsCtx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Page Views',
+        data: views,
+        borderColor: '#4f46e5',
+        backgroundColor: '#4f46e520',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  if (visitorsChart) visitorsChart.destroy();
+  visitorsChart = new Chart(visitorsCtx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Unique Visitors', data: visitors, backgroundColor: '#d97706' },
+        { label: 'Quiz Attempts', data: attempts, backgroundColor: '#059669' }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+}
+
 function updateAnalyticsUI(data) {
   if (statViews)    statViews.textContent    = fmt(data.pageViews);
   if (statVisitors) statVisitors.textContent = fmt(data.uniqueVisitors);
   if (statAttempts) statAttempts.textContent = fmt(data.quizAttempts);
+  
+  renderCharts();
+}
+
+if (generateReportBtn) {
+  generateReportBtn.addEventListener("click", async () => {
+    try {
+      showSpinner("Generating Report...");
+      await generateCSVReport();
+      showToast("Report generated!", "success");
+    } catch (e) {
+      showToast("Report generation failed: " + e.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  });
 }
 
 // ── CMS Initialization & Select Handlers ─────────────────────
@@ -546,6 +610,10 @@ questionForm.addEventListener("submit", async (e) => {
       await updateDoc(doc(db, "courses", cid, "weeks", wid, "questions", qid), qData);
       showToast("Question updated successfully!", "success");
     } else {
+      const qs = await loadQuestions(cid, wid);
+      const maxOrder = qs.length > 0 ? Math.max(...qs.map(q => q.order !== undefined ? q.order : -1)) : -1;
+      qData.order = maxOrder + 1;
+      
       await addDoc(collection(db, "courses", cid, "weeks", wid, "questions"), qData);
       showToast("Question created successfully!", "success");
     }
@@ -639,6 +707,8 @@ saveBatchBtn.addEventListener("click", async () => {
   showSpinner(`Batch saving ${parsedQuestionsToSave.length} questions to Firestore...`);
   try {
     const qColRef = collection(db, "courses", cid, "weeks", wid, "questions");
+    const existingQs = await loadQuestions(cid, wid);
+    let currentOrder = existingQs.length > 0 ? Math.max(...existingQs.map(q => q.order !== undefined ? q.order : -1)) + 1 : 0;
 
     // Firestore batch supports up to 500 operations per batch
     let batch = writeBatch(db);
@@ -646,6 +716,7 @@ saveBatchBtn.addEventListener("click", async () => {
 
     for (const q of parsedQuestionsToSave) {
       const newDocRef = doc(qColRef);
+      q.order = currentOrder++;
       batch.set(newDocRef, q);
       count++;
 
