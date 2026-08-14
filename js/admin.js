@@ -16,7 +16,10 @@ import {
   orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
+import { 
+  loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt,
+  subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources
+} from "./app.js";
 import { 
   subscribeToAnalytics, 
   subscribeToLivePresence, 
@@ -497,62 +500,96 @@ if (generateReportBtn) {
   });
 }
 
-// ── CMS Initialization & Select Handlers ─────────────────────
-async function initCMS() {
-  await refreshCourses();
-}
+// ── Real-Time Unsubscribe References ────────────────────────
+let unsubCourses = null;
+let unsubWeeks = null;
+let unsubImportWeeks = null;
+let unsubQuestions = null;
+let unsubResources = null;
 
-async function refreshCourses() {
-  showSpinner("Loading courses...");
-  try {
-    const courses = await loadCourses();
+// ── CMS Initialization & Select Handlers ─────────────────────
+function initCMS() {
+  if (unsubCourses) unsubCourses();
+  unsubCourses = subscribeToCourses((courses) => {
+    const curVal = courseSelect.value;
+    const curImpVal = importCourseSelect.value;
+
     populateSelect(courseSelect, courses, "— Select Course —");
     populateSelect(importCourseSelect, courses, "— Select Course —");
 
-    // Reset dependent selects
-    weekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
-    weekSelect.disabled = true;
-    importWeekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
-    importWeekSelect.disabled = true;
+    if (curVal) courseSelect.value = curVal;
+    if (curImpVal) importCourseSelect.value = curImpVal;
 
-    deleteCourseBtn.disabled = true;
-    deleteWeekBtn.disabled = true;
-
-    questionsTableBody.innerHTML = "";
-    if (qListCount) qListCount.textContent = "0";
-  } catch (err) {
-    showToast("Error loading courses: " + err.message, "error");
-  } finally {
-    hideSpinner();
-  }
+    deleteCourseBtn.disabled = !courseSelect.value;
+  });
 }
 
 // Course selection change in CMS tab
-courseSelect.addEventListener("change", async () => {
+courseSelect.addEventListener("change", () => {
   const cid = courseSelect.value;
   deleteCourseBtn.disabled = !cid;
   deleteWeekBtn.disabled = true;
 
-  weekSelect.innerHTML = `<option value="" disabled selected>Loading weeks...</option>`;
-  weekSelect.disabled = true;
+  if (unsubWeeks) { unsubWeeks(); unsubWeeks = null; }
+  if (unsubQuestions) { unsubQuestions(); unsubQuestions = null; }
+  if (unsubResources) { unsubResources(); unsubResources = null; }
+
+  weekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
+  weekSelect.disabled = !cid;
   questionsTableBody.innerHTML = "";
   if (qListCount) qListCount.textContent = "0";
+  if (resListCount) resListCount.textContent = "0";
 
-  try {
-    const weeks = await loadWeeks(cid);
+  if (!cid) return;
+
+  unsubWeeks = subscribeToWeeks(cid, (weeks) => {
+    const curWeek = weekSelect.value;
     populateSelect(weekSelect, weeks, "— Select Week —");
+    if (curWeek) weekSelect.value = curWeek;
     weekSelect.disabled = false;
-  } catch (err) {
-    showToast("Error loading weeks: " + err.message, "error");
-  }
+  });
 });
 
+// Import course selection change
+if (importCourseSelect) {
+  importCourseSelect.addEventListener("change", () => {
+    const cid = importCourseSelect.value;
+    if (unsubImportWeeks) { unsubImportWeeks(); unsubImportWeeks = null; }
+
+    importWeekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
+    importWeekSelect.disabled = !cid;
+
+    if (!cid) return;
+
+    unsubImportWeeks = subscribeToWeeks(cid, (weeks) => {
+      const curWeek = importWeekSelect.value;
+      populateSelect(importWeekSelect, weeks, "— Select Week —");
+      if (curWeek) importWeekSelect.value = curWeek;
+      importWeekSelect.disabled = false;
+    });
+  });
+}
+
 // Week selection change in CMS tab
-weekSelect.addEventListener("change", async () => {
+weekSelect.addEventListener("change", () => {
+  const cid = courseSelect.value;
   const wid = weekSelect.value;
   deleteWeekBtn.disabled = !wid;
-  await refreshQuestionsList();
-  await refreshResourcesList();
+
+  if (unsubQuestions) { unsubQuestions(); unsubQuestions = null; }
+  if (unsubResources) { unsubResources(); unsubResources = null; }
+
+  if (!cid || !wid) return;
+
+  unsubQuestions = subscribeToQuestions(cid, wid, (qs) => {
+    if (qListCount) qListCount.textContent = qs.length;
+    renderQuestionsTable(qs);
+  });
+
+  unsubResources = subscribeToResources(cid, wid, (resources) => {
+    if (resListCount) resListCount.textContent = resources.length;
+    renderResourcesTable(resources);
+  });
 });
 
 // ── PDF Resources CRUD ─────────────────────────────────────────

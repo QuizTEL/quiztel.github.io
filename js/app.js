@@ -8,7 +8,8 @@ import {
   collection,
   getDocs,
   orderBy,
-  query
+  query,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── Firestore Helpers ─────────────────────────────────────────
@@ -19,11 +20,35 @@ export async function loadCourses() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+/** Real-time Subscribe to all courses */
+export function subscribeToCourses(callback) {
+  const q = query(collection(db, "courses"), orderBy("name"));
+  return onSnapshot(q, (snap) => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(list);
+  }, (err) => {
+    console.warn("Real-time courses error:", err);
+  });
+}
+
 /** Fetch all weeks for a course → [{ id, name }] */
 export async function loadWeeks(courseId) {
   const ref  = collection(db, "courses", courseId, "weeks");
   const snap = await getDocs(query(ref, orderBy("name")));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Real-time Subscribe to weeks of a course */
+export function subscribeToWeeks(courseId, callback) {
+  if (!courseId) return () => {};
+  const ref = collection(db, "courses", courseId, "weeks");
+  const q = query(ref, orderBy("name"));
+  return onSnapshot(q, (snap) => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(list);
+  }, (err) => {
+    console.warn("Real-time weeks error:", err);
+  });
 }
 
 /** Fetch all questions for a week → [{ id, text, options, correctOptionIndex, explanation, order }] */
@@ -39,6 +64,24 @@ export async function loadQuestions(courseId, weekId) {
   });
 }
 
+/** Real-time Subscribe to questions of a week */
+export function subscribeToQuestions(courseId, weekId, callback) {
+  if (!courseId || !weekId) return () => {};
+  const ref = collection(db, "courses", courseId, "weeks", weekId, "questions");
+  return onSnapshot(ref, (snap) => {
+    const questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    questions.sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+      return a.id.localeCompare(b.id);
+    });
+    callback(questions);
+  }, (err) => {
+    console.warn("Real-time questions error:", err);
+  });
+}
+
 /** Fetch all PDF/solution resources for a week → [{ id, title, url }] */
 export async function loadResources(courseId, weekId) {
   try {
@@ -49,6 +92,18 @@ export async function loadResources(courseId, weekId) {
     console.warn("Could not load resources (possibly permissions):", err);
     return [];
   }
+}
+
+/** Real-time Subscribe to resources of a week */
+export function subscribeToResources(courseId, weekId, callback) {
+  if (!courseId || !weekId) return () => {};
+  const ref = collection(db, "courses", courseId, "weeks", weekId, "resources");
+  return onSnapshot(ref, (snap) => {
+    const resources = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(resources);
+  }, (err) => {
+    console.warn("Real-time resources error:", err);
+  });
 }
 
 /** Fetch ALL questions across ALL weeks for a course → [{ ...question, weekId, weekName }] */

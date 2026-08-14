@@ -2,7 +2,10 @@
 //  QuizTEL — Study Mode (study.js)
 // ============================================================
 
-import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, initFeedbackModal } from "./app.js";
+import { 
+  loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, initFeedbackModal,
+  subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources
+} from "./app.js";
 import { trackPageView, initPresence } from "./analytics.js";
 
 const courseSelect  = document.getElementById("course-select");
@@ -15,69 +18,63 @@ const resourcesList = document.getElementById("resources-list");
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
+let unsubStudyCourses = null;
+let unsubStudyWeeks = null;
+let unsubStudyQuestions = null;
+let unsubStudyResources = null;
+
 // ── Init ──────────────────────────────────────────────────────
-async function init() {
+function init() {
   trackPageView();
   initPresence();
   initFeedbackModal();
-  showSpinner("Loading courses…");
-  try {
-    const courses = await loadCourses();
+
+  unsubStudyCourses = subscribeToCourses((courses) => {
+    const curVal = courseSelect.value;
     populateSelect(courseSelect, courses, "— Select a Course —");
-    if (courses.length === 0) {
-      showToast("No courses found. Ask admin to add courses.", "info");
-    }
-  } catch (err) {
-    showToast("Failed to load courses: " + err.message, "error");
-  } finally {
-    hideSpinner();
-  }
+    if (curVal) courseSelect.value = curVal;
+  });
 }
 
 // ── Course selection → load weeks ─────────────────────────────
-courseSelect.addEventListener("change", async () => {
+courseSelect.addEventListener("change", () => {
   const cid = courseSelect.value;
-  weekSelect.innerHTML = `<option value="" disabled selected>Loading weeks…</option>`;
-  weekSelect.disabled = true;
+
+  if (unsubStudyWeeks) { unsubStudyWeeks(); unsubStudyWeeks = null; }
+  if (unsubStudyQuestions) { unsubStudyQuestions(); unsubStudyQuestions = null; }
+  if (unsubStudyResources) { unsubStudyResources(); unsubStudyResources = null; }
+
+  weekSelect.innerHTML = `<option value="" disabled selected>— Select a Week —</option>`;
+  weekSelect.disabled = !cid;
   questionsArea.innerHTML = "";
   if (qCount) qCount.textContent = "";
   if (emptyState) emptyState.classList.remove("hidden");
   if (resourcesArea) resourcesArea.classList.add("hidden");
 
-  try {
-    const weeks = await loadWeeks(cid);
+  if (!cid) return;
+
+  unsubStudyWeeks = subscribeToWeeks(cid, (weeks) => {
+    const curWeek = weekSelect.value;
     populateSelect(weekSelect, weeks, "— Select a Week —");
+    if (curWeek) weekSelect.value = curWeek;
     weekSelect.disabled = false;
-  } catch (err) {
-    showToast("Failed to load weeks: " + err.message, "error");
-  }
+  });
 });
 
-// ── Week selection → automatically fetch questions & resources ──
-weekSelect.addEventListener("change", async () => {
+// ── Week selection → live fetch questions & resources ──────────
+weekSelect.addEventListener("change", () => {
   const cid = courseSelect.value;
   const wid = weekSelect.value;
+
+  if (unsubStudyQuestions) { unsubStudyQuestions(); unsubStudyQuestions = null; }
+  if (unsubStudyResources) { unsubStudyResources(); unsubStudyResources = null; }
+
   if (!cid || !wid) return;
 
-  showSpinner("Fetching questions and attachments…");
   if (emptyState) emptyState.classList.add("hidden");
-  questionsArea.innerHTML = "";
-  if (qCount) qCount.textContent = "";
-  if (resourcesArea) resourcesArea.classList.add("hidden");
 
-  try {
-    const questions = await loadQuestions(cid, wid);
-    
-    let resources = [];
-    try {
-      resources = await loadResources(cid, wid);
-    } catch (e) {
-      console.warn("Could not load resources:", e);
-    }
-    
-    hideSpinner();
-
-    // Render downloadable PDF resources if available
+  // Real-time Resources Listener
+  unsubStudyResources = subscribeToResources(cid, wid, (resources) => {
     if (resources && resources.length > 0) {
       if (resourcesArea) resourcesArea.classList.remove("hidden");
       if (resourcesList) {
@@ -93,22 +90,24 @@ weekSelect.addEventListener("change", async () => {
     } else {
       if (resourcesArea) resourcesArea.classList.add("hidden");
     }
+  });
 
-    if (questions.length === 0 && (!resources || resources.length === 0)) {
+  // Real-time Questions Listener
+  unsubStudyQuestions = subscribeToQuestions(cid, wid, (questions) => {
+    if (questions.length === 0) {
       if (emptyState) emptyState.classList.remove("hidden");
-      showToast("No questions found for this week.", "info");
+      questionsArea.innerHTML = "";
+      if (qCount) qCount.textContent = "";
       return;
     }
 
+    if (emptyState) emptyState.classList.add("hidden");
     if (qCount) {
       qCount.textContent = `${questions.length} question${questions.length !== 1 ? "s" : ""}`;
     }
 
     renderQuestions(questions);
-  } catch (err) {
-    hideSpinner();
-    showToast("Failed to load questions: " + err.message, "error");
-  }
+  });
 });
 
 // ── Render question cards ─────────────────────────────────────

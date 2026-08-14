@@ -5,7 +5,8 @@
 
 import {
   loadCourses, loadWeeks, loadQuestions,
-  populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal
+  populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal,
+  subscribeToCourses, subscribeToWeeks
 } from "./app.js";
 import { trackPageView, incrementQuizAttempts, initPresence, trackQuizCompletion, trackShare } from "./analytics.js";
 
@@ -45,36 +46,53 @@ let userAnswers  = [];   // index of selected option per question, or null
 let currentQIdx  = 0;
 let courseId     = "";
 
+let unsubQuizCourses = null;
+let unsubQuizWeeks   = null;
+
 // ── Init ──────────────────────────────────────────────────────
-async function init() {
+function init() {
   trackPageView();
   initPresence();
   initFeedbackModal();
-  showSpinner("Loading courses…");
-  try {
-    const courses = await loadCourses();
+
+  unsubQuizCourses = subscribeToCourses((courses) => {
+    const curVal = courseSelect.value;
     populateSelect(courseSelect, courses, "— Choose a Course —");
-  } catch (e) {
-    showToast("Failed to load courses: " + e.message, "error");
-  } finally {
-    hideSpinner();
-  }
+    if (curVal) courseSelect.value = curVal;
+  });
 }
 
-// ── Course → load weeks into checkboxes ───────────────────────
-courseSelect.addEventListener("change", async () => {
+// ── Course → live load weeks into checkboxes ──────────────────
+courseSelect.addEventListener("change", () => {
   courseId = courseSelect.value;
-  weekContainer.innerHTML = `<p class="text-sm text-gray-400 animate-pulse">Loading weeks…</p>`;
   startBtn.disabled = true;
   if (allWeeksChk) allWeeksChk.checked = false;
 
-  try {
-    allWeeks = await loadWeeks(courseId);
-    renderWeekCheckboxes(allWeeks);
-  } catch (e) {
-    showToast("Failed to load weeks: " + e.message, "error");
+  if (unsubQuizWeeks) { unsubQuizWeeks(); unsubQuizWeeks = null; }
+
+  if (!courseId) {
+    weekContainer.innerHTML = `<p class="text-sm text-slate-400">Select a course to view available weeks.</p>`;
+    return;
   }
+
+  unsubQuizWeeks = subscribeToWeeks(courseId, (weeks) => {
+    allWeeks = weeks;
+    if (weeks.length === 0) {
+      weekContainer.innerHTML = `<p class="text-sm text-slate-400">No weeks found for this course.</p>`;
+      return;
+    }
+
+    weekContainer.innerHTML = weeks.map(w => `
+      <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition cursor-pointer bg-slate-50/50">
+        <input type="checkbox" name="week" value="${w.id}" class="week-chk w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+        <span class="text-xs font-bold text-slate-800">${escHtml(w.name)}</span>
+      </label>
+    `).join("");
+
+    bindWeekCheckboxes();
+  });
 });
+
 
 function renderWeekCheckboxes(weeks) {
   if (!weeks.length) {

@@ -140,25 +140,26 @@
 
   <!-- Script setup -->
   <script type="module">
-    import { loadCourses, initFeedbackModal } from "./js/app.js";
+    import { subscribeToCourses, initFeedbackModal } from "./js/app.js";
     import { trackPageView, initPresence } from "./js/analytics.js";
 
     document.getElementById("current-year").textContent = new Date().getFullYear();
 
-    async function initPage() {
+    function initPage() {
       trackPageView();
       initPresence();
       initFeedbackModal();
 
       const grid = document.getElementById("courses-grid");
       const searchInput = document.getElementById("course-search-input");
+      let allCourses = [];
 
       function renderCourses(list) {
         if (list.length === 0) {
           grid.innerHTML = `
             <div class="col-span-full bg-white rounded-2xl p-8 text-center border border-slate-200">
               <p class="text-slate-600 font-medium">No matching courses found.</p>
-              <p class="text-xs text-slate-400 mt-1">Try typing a different course name.</p>
+              <p class="text-xs text-slate-400 mt-1">Try typing a different course name or wait for Admin to add courses.</p>
             </div>`;
           return;
         }
@@ -180,30 +181,25 @@
         `).join("");
       }
 
-      try {
-        const courses = await loadCourses();
-        if (courses.length === 0) {
-          grid.innerHTML = `
-            <div class="col-span-full bg-white rounded-2xl p-8 text-center border border-slate-200">
-              <p class="text-slate-600 font-medium">No courses available yet.</p>
-              <p class="text-xs text-slate-400 mt-1">Check back later or log in as Admin to add courses.</p>
-            </div>`;
-          return;
-        }
-
-        renderCourses(courses);
-
-        // Bind Live Search Filter
-        if (searchInput) {
-          searchInput.addEventListener("input", (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            const filtered = courses.filter(c => c.name.toLowerCase().includes(query));
-            renderCourses(filtered);
-          });
-        }
-      } catch (err) {
-        grid.innerHTML = `<div class="col-span-full text-red-500 text-center py-6">Failed to load courses. Please check your Firebase configuration.</div>`;
+      // Live Search Filter Listener
+      if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+          const query = e.target.value.toLowerCase().trim();
+          const filtered = allCourses.filter(c => c.name.toLowerCase().includes(query));
+          renderCourses(filtered);
+        });
       }
+
+      // Real-time listener for live course updates
+      subscribeToCourses((courses) => {
+        allCourses = courses;
+        const currentQuery = searchInput ? searchInput.value.toLowerCase().trim() : "";
+        if (currentQuery) {
+          renderCourses(allCourses.filter(c => c.name.toLowerCase().includes(currentQuery)));
+        } else {
+          renderCourses(allCourses);
+        }
+      });
     }
 
     initPage();
