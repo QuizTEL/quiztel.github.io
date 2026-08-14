@@ -446,13 +446,25 @@ function renderFeedbacksTable() {
     `;
   }).join("");
 
-  // Attach button event listeners
+  // Attach button event listeners with Instant Optimistic UI Update & Live Sync
   fbTableBody.querySelectorAll("button[data-action='toggle-fb-status']").forEach(btn => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.id;
       const status = btn.dataset.status === "true";
-      await toggleFeedbackStatus(id, status);
-      showToast("Feedback status updated!", "info");
+
+      // Instant optimistic UI update
+      const targetItem = rawFeedbackList.find(item => item.id === id);
+      if (targetItem) {
+        targetItem.reviewed = status;
+      }
+      updateFeedbacksUI(rawFeedbackList);
+
+      try {
+        await toggleFeedbackStatus(id, status);
+        showToast("Feedback status updated!", "info");
+      } catch (err) {
+        console.error("Failed to update feedback status:", err);
+      }
     });
   });
 
@@ -460,8 +472,16 @@ function renderFeedbacksTable() {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.id;
       if (confirm("Are you sure you want to delete this user feedback entry?")) {
-        await deleteFeedback(id);
-        showToast("Feedback deleted.", "info");
+        // Instant optimistic UI deletion
+        rawFeedbackList = rawFeedbackList.filter(item => item.id !== id);
+        updateFeedbacksUI(rawFeedbackList);
+
+        try {
+          await deleteFeedback(id);
+          showToast("Feedback deleted.", "info");
+        } catch (err) {
+          console.error("Failed to delete feedback:", err);
+        }
       }
     });
   });
