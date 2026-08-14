@@ -320,7 +320,7 @@ export function initFeedbackModal() {
         message,
         page: window.location.pathname.split("/").pop() || "index.html"
       });
-      showToast("Thank you for your feedback! Saved to Admin panel.", "success");
+      showToast("Thank you for your feedback!", "success");
       form.reset();
       if (starBtns[4]) starBtns[4].click();
       closeModal();

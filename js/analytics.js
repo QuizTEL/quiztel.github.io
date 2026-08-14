@@ -297,11 +297,24 @@ export function subscribeToFeedbacks(callback) {
 
 // ── Delete Feedback ───────────────────────────────────────────
 export async function deleteFeedback(feedbackId) {
+  if (String(feedbackId).startsWith("local_")) {
+    let offlineList = JSON.parse(localStorage.getItem("quiztel_offline_feedbacks") || "[]");
+    offlineList = offlineList.filter(item => item.id !== feedbackId);
+    localStorage.setItem("quiztel_offline_feedbacks", JSON.stringify(offlineList));
+    return;
+  }
   await deleteDoc(doc(FEEDBACK_COL, feedbackId));
 }
 
 // ── Toggle Feedback Reviewed Status ───────────────────────────
 export async function toggleFeedbackStatus(feedbackId, newStatus) {
+  if (String(feedbackId).startsWith("local_")) {
+    let offlineList = JSON.parse(localStorage.getItem("quiztel_offline_feedbacks") || "[]");
+    const target = offlineList.find(item => item.id === feedbackId);
+    if (target) target.reviewed = newStatus;
+    localStorage.setItem("quiztel_offline_feedbacks", JSON.stringify(offlineList));
+    return;
+  }
   await updateDoc(doc(FEEDBACK_COL, feedbackId), { reviewed: newStatus });
 }
 
