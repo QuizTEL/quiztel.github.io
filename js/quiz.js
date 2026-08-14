@@ -5,9 +5,9 @@
 
 import {
   loadCourses, loadWeeks, loadQuestions,
-  populateSelect, showToast, showSpinner, hideSpinner, shuffleArray
+  populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal
 } from "./app.js";
-import { trackPageView, incrementQuizAttempts } from "./analytics.js";
+import { trackPageView, incrementQuizAttempts, initPresence, trackQuizCompletion, trackShare } from "./analytics.js";
 
 // ── DOM References ────────────────────────────────────────────
 const setupPanel    = document.getElementById("setup-panel");
@@ -34,6 +34,7 @@ const scoreLabel    = document.getElementById("score-label");
 const reviewArea    = document.getElementById("review-area");
 const retryBtn      = document.getElementById("retry-btn");
 const homeBtn       = document.getElementById("home-btn");
+const shareScoreBtn = document.getElementById("share-score-btn");
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -47,6 +48,8 @@ let courseId     = "";
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   trackPageView();
+  initPresence();
+  initFeedbackModal();
   showSpinner("Loading courses…");
   try {
     const courses = await loadCourses();
@@ -255,6 +258,14 @@ function showResults() {
 
   const pct = Math.round((correct / builtQuiz.length) * 100);
 
+  // Track quiz completion analytics
+  trackQuizCompletion({
+    scorePct: pct,
+    scoreCount: 1,
+    totalQuestions: builtQuiz.length,
+    courseId
+  });
+
   if (scorePct)  scorePct.textContent  = `${pct}%`;
   if (scoreLabel) scoreLabel.textContent = `${correct} / ${builtQuiz.length} correct`;
 
@@ -325,6 +336,26 @@ function showResults() {
   }
 
   showPanel("results");
+}
+
+// ── Share Score Button ─────────────────────────────────────────
+if (shareScoreBtn) {
+  shareScoreBtn.addEventListener("click", async () => {
+    const text = `I just scored ${scorePct?.textContent || "great"} on QuizTEL NPTEL Quiz! Check out your NPTEL course prep here:`;
+    const url = window.location.href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "QuizTEL Score", text, url });
+      } else {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+        showToast("Score link copied to clipboard!", "success");
+      }
+      trackShare("quiz_score");
+    } catch (e) {
+      console.warn("Share cancelled or failed:", e);
+    }
+  });
 }
 
 // ── Retry / Home ──────────────────────────────────────────────

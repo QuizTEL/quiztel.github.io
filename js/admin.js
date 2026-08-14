@@ -4,26 +4,17 @@
 //  Bulk Import (PDF/DOCX), and Live Analytics.
 // ============================================================
 
-import { auth, db } from "./firebase-config.js";
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  collection,
-  doc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  query,
-  orderBy
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
 import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
-import { subscribeToAnalytics, trackPageView, fetchDailyAnalytics, generateCSVReport } from "./analytics.js";
+import { 
+  subscribeToAnalytics, 
+  subscribeToLivePresence, 
+  subscribeToFeedbacks, 
+  trackPageView, 
+  fetchDailyAnalytics, 
+  generateCSVReport, 
+  deleteFeedback, 
+  toggleFeedbackStatus 
+} from "./analytics.js";
 import { parseQuestionsFromText } from "./file-parser.js";
 
 // ── DOM Elements ──────────────────────────────────────────────
@@ -40,10 +31,26 @@ const tabBtns         = document.querySelectorAll("[data-tab]");
 const tabContents     = document.querySelectorAll("[data-tab-content]");
 
 // Analytics DOM
-const statViews       = document.getElementById("stat-views");
-const statVisitors    = document.getElementById("stat-visitors");
-const statAttempts    = document.getElementById("stat-attempts");
-const generateReportBtn = document.getElementById("generate-report-btn");
+const statViews          = document.getElementById("stat-views");
+const statVisitors       = document.getElementById("stat-visitors");
+const statAttempts       = document.getElementById("stat-attempts");
+const statAttendees      = document.getElementById("stat-attendees");
+const statAvgScore       = document.getElementById("stat-avg-score");
+const statShares         = document.getElementById("stat-shares");
+const statLiveUsers      = document.getElementById("stat-live-users");
+const cardLiveUsers      = document.getElementById("card-live-users");
+const statPeakHourBadge  = document.getElementById("stat-peak-hour-badge");
+const peakHourHighlight  = document.getElementById("peak-hour-highlight");
+const generateReportBtn  = document.getElementById("generate-report-btn");
+
+// Feedback DOM
+const fbTotalCount       = document.getElementById("fb-total-count");
+const fbAvgRating        = document.getElementById("fb-avg-rating");
+const fbBugCount         = document.getElementById("fb-bug-count");
+const fbSuggestionCount  = document.getElementById("fb-suggestion-count");
+const fbBadgeCount       = document.getElementById("feedback-badge-count");
+const fbTableBody        = document.getElementById("feedbacks-table-body");
+const fbFilterPills      = document.getElementById("fb-filter-pills");
 
 // CMS — Courses & Weeks
 const courseSelect    = document.getElementById("cms-course-select");
@@ -91,6 +98,13 @@ const saveBatchBtn       = document.getElementById("save-batch-btn");
 // ── State ─────────────────────────────────────────────────────
 let parsedQuestionsToSave = [];
 let unsubscribeAnalytics  = null;
+let unsubscribePresence   = null;
+let unsubscribeFeedbacks  = null;
+
+let rawFeedbackList       = [];
+let currentFeedbackFilter = "all";
+
+let viewsChart, visitorsChart, peakHoursChart;
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
@@ -103,126 +117,304 @@ function init() {
       adminSection.classList.remove("hidden");
       if (adminUserEmail) adminUserEmail.textContent = user.email;
 
-      // Init CMS & Analytics
+      // Init CMS & Real-time Subscriptions
       initCMS();
+
       if (!unsubscribeAnalytics) {
         unsubscribeAnalytics = subscribeToAnalytics(updateAnalyticsUI);
+      }
+      if (!unsubscribePresence) {
+        unsubscribePresence = subscribeToLivePresence(updatePresenceUI);
+      }
+      if (!unsubscribeFeedbacks) {
+        unsubscribeFeedbacks = subscribeToFeedbacks(updateFeedbacksUI);
       }
     } else {
       authSection.classList.remove("hidden");
       adminSection.classList.add("hidden");
-      if (unsubscribeAnalytics) {
-        unsubscribeAnalytics();
-        unsubscribeAnalytics = null;
-      }
+      if (unsubscribeAnalytics) { unsubscribeAnalytics(); unsubscribeAnalytics = null; }
+      if (unsubscribePresence)  { unsubscribePresence();  unsubscribePresence = null; }
+      if (unsubscribeFeedbacks) { unsubscribeFeedbacks(); unsubscribeFeedbacks = null; }
     }
   });
 }
 
-// ── Auth Handlers ─────────────────────────────────────────────
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = loginEmail.value.trim();
-  const pass  = loginPass.value.trim();
-  if (!email || !pass) return;
+// ── Live Presence UI Handler ──────────────────────────────────
+function updatePresenceUI({ activeCount, activePages }) {
+  if (statLiveUsers) statLiveUsers.textContent = fmt(activeCount);
+  if (cardLiveUsers) cardLiveUsers.textContent = fmt(activeCount);
+}
 
-  showSpinner("Authenticating...");
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-    showToast("Successfully logged in as Admin!", "success");
-    loginForm.reset();
-  } catch (err) {
-    console.error("Firebase Login Error:", err);
-    alert("Login Error: " + err.message);
-    showToast("Login failed: " + err.message, "error");
-  } finally {
-    hideSpinner();
-  }
-});
-
-logoutBtn.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-    showToast("Logged out.", "info");
-  } catch (err) {
-    showToast("Logout error: " + err.message, "error");
-  }
-});
-
-// ── Tab Switching ─────────────────────────────────────────────
-tabBtns.forEach(btn => {
-  btn.addEventListener("click", () => {
-    const target = btn.dataset.tab;
-    tabBtns.forEach(b => {
-      if (b === btn) {
-        b.classList.add("border-indigo-600", "text-indigo-600", "font-bold");
-        b.classList.remove("border-transparent", "text-gray-500");
-      } else {
-        b.classList.remove("border-indigo-600", "text-indigo-600", "font-bold");
-        b.classList.add("border-transparent", "text-gray-500");
-      }
-    });
-
-    tabContents.forEach(content => {
-      content.classList.toggle("hidden", content.dataset.tabContent !== target);
-    });
-  });
-});
-
-// ── Analytics UI Update ───────────────────────────────────────
-let viewsChart, visitorsChart;
-
+// ── Analytics UI & Stock Market Charts Handler ────────────────
 async function renderCharts() {
   const data = await fetchDailyAnalytics(30);
   if (!data.length) return;
   
-  const labels = data.map(d => d.date);
-  const views = data.map(d => d.pageViews || 0);
+  const labels   = data.map(d => d.date);
+  const views    = data.map(d => d.pageViews || 0);
   const visitors = data.map(d => d.uniqueVisitors || 0);
   const attempts = data.map(d => d.quizAttempts || 0);
 
+  // 1. Stock Market Style Real-Time Line Area Chart
   const viewsCtx = document.getElementById('viewsChart')?.getContext('2d');
+  if (viewsCtx) {
+    if (viewsChart) viewsChart.destroy();
+    
+    // Create stock market glowing green gradient fill
+    const gradient = viewsCtx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.45)');
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+    viewsChart = new Chart(viewsCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Page Views Stream',
+          data: views,
+          borderColor: '#10b981',
+          borderWidth: 3,
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#ffffff',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleColor: '#38bdf8',
+            bodyColor: '#f8fafc',
+            borderColor: '#334155',
+            borderWidth: 1
+          }
+        },
+        scales: {
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+  }
+
+  // 2. Peak Hours 24-Hour Distribution Chart
+  const hourlyTotals = Array(24).fill(0);
+  data.forEach(d => {
+    if (d.hourlyViews) {
+      Object.entries(d.hourlyViews).forEach(([hKey, count]) => {
+        const hNum = parseInt(hKey.replace("H", ""));
+        if (!isNaN(hNum) && hNum >= 0 && hNum < 24) {
+          hourlyTotals[hNum] += count;
+        }
+      });
+    }
+  });
+
+  let maxHourIdx = 0;
+  let maxCount = 0;
+  hourlyTotals.forEach((count, idx) => {
+    if (count > maxCount) {
+      maxCount = count;
+      maxHourIdx = idx;
+    }
+  });
+
+  const peakHourStr = `${String(maxHourIdx).padStart(2, '0')}:00`;
+  if (statPeakHourBadge) statPeakHourBadge.textContent = peakHourStr;
+  if (peakHourHighlight) peakHourHighlight.textContent = `Peak: ${peakHourStr} (${fmt(maxCount)} views)`;
+
+  const peakCtx = document.getElementById('peakHoursChart')?.getContext('2d');
+  if (peakCtx) {
+    if (peakHoursChart) peakHoursChart.destroy();
+    
+    const hourLabels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+    const bgColors = hourlyTotals.map((_, i) => i === maxHourIdx ? '#f59e0b' : '#6366f1');
+
+    peakHoursChart = new Chart(peakCtx, {
+      type: 'bar',
+      data: {
+        labels: hourLabels,
+        datasets: [{
+          label: 'Hourly Views',
+          data: hourlyTotals,
+          backgroundColor: bgColors,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 10 } } },
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // 3. Unique Visitors vs Quiz Attempts Bar Chart
   const visitorsCtx = document.getElementById('visitorsChart')?.getContext('2d');
-
-  if (!viewsCtx || !visitorsCtx) return;
-
-  if (viewsChart) viewsChart.destroy();
-  viewsChart = new Chart(viewsCtx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Page Views',
-        data: views,
-        borderColor: '#4f46e5',
-        backgroundColor: '#4f46e520',
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false }
-  });
-
-  if (visitorsChart) visitorsChart.destroy();
-  visitorsChart = new Chart(visitorsCtx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Unique Visitors', data: visitors, backgroundColor: '#d97706' },
-        { label: 'Quiz Attempts', data: attempts, backgroundColor: '#059669' }
-      ]
-    },
-    options: { responsive: true, maintainAspectRatio: false }
-  });
+  if (visitorsCtx) {
+    if (visitorsChart) visitorsChart.destroy();
+    visitorsChart = new Chart(visitorsCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Unique Visitors', data: visitors, backgroundColor: '#d97706', borderRadius: 6 },
+          { label: 'Quiz Attempts', data: attempts, backgroundColor: '#059669', borderRadius: 6 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
 }
 
 function updateAnalyticsUI(data) {
-  if (statViews)    statViews.textContent    = fmt(data.pageViews);
-  if (statVisitors) statVisitors.textContent = fmt(data.uniqueVisitors);
-  if (statAttempts) statAttempts.textContent = fmt(data.quizAttempts);
-  
+  if (statViews)     statViews.textContent     = fmt(data.pageViews);
+  if (statVisitors)  statVisitors.textContent  = fmt(data.uniqueVisitors);
+  if (statAttempts)  statAttempts.textContent  = fmt(data.quizAttempts);
+  if (statAttendees) statAttendees.textContent = fmt(data.quizAttendees || data.uniqueVisitors);
+  if (statShares)    statShares.textContent    = fmt(data.totalShares);
+
+  const avgPct = data.totalScoreCount ? (data.totalScoreSum / data.totalScoreCount).toFixed(1) : "0";
+  if (statAvgScore)  statAvgScore.textContent  = `${avgPct}%`;
+
   renderCharts();
+}
+
+// ── User Feedbacks Management UI ──────────────────────────────
+function updateFeedbacksUI(list) {
+  rawFeedbackList = list || [];
+
+  const total = rawFeedbackList.length;
+  if (fbTotalCount) fbTotalCount.textContent = fmt(total);
+
+  if (fbBadgeCount) {
+    if (total > 0) {
+      fbBadgeCount.textContent = total;
+      fbBadgeCount.classList.remove("hidden");
+    } else {
+      fbBadgeCount.classList.add("hidden");
+    }
+  }
+
+  // Avg Star Rating
+  const avg = total > 0 ? (rawFeedbackList.reduce((acc, item) => acc + (Number(item.rating) || 5), 0) / total).toFixed(1) : "5.0";
+  if (fbAvgRating) fbAvgRating.textContent = `${avg} ★`;
+
+  // Bug & Suggestion Counts
+  const bugs = rawFeedbackList.filter(item => item.category === "Quiz Bug / Error").length;
+  const suggestions = rawFeedbackList.filter(item => item.category === "General Suggestion" || item.category === "Feature Request").length;
+  if (fbBugCount) fbBugCount.textContent = fmt(bugs);
+  if (fbSuggestionCount) fbSuggestionCount.textContent = fmt(suggestions);
+
+  renderFeedbacksTable();
+}
+
+function renderFeedbacksTable() {
+  if (!fbTableBody) return;
+
+  const filtered = currentFeedbackFilter === "all"
+    ? rawFeedbackList
+    : rawFeedbackList.filter(item => item.category === currentFeedbackFilter);
+
+  if (filtered.length === 0) {
+    fbTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">No user feedbacks found for this filter.</td></tr>`;
+    return;
+  }
+
+  const categoryBadgeMap = {
+    "General Suggestion": "bg-indigo-100 text-indigo-800",
+    "Quiz Bug / Error": "bg-red-100 text-red-800",
+    "Content Correction": "bg-amber-100 text-amber-800",
+    "Feature Request": "bg-purple-100 text-purple-800"
+  };
+
+  fbTableBody.innerHTML = filtered.map(f => {
+    const stars = "★".repeat(f.rating || 5) + "☆".repeat(5 - (f.rating || 5));
+    const badgeCls = categoryBadgeMap[f.category] || "bg-slate-100 text-slate-800";
+    const statusTag = f.reviewed 
+      ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">✓ Reviewed</span>`
+      : `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full">New</span>`;
+
+    return `
+      <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition text-xs ${f.reviewed ? 'opacity-75' : ''}">
+        <td class="py-3.5 px-4 font-bold text-slate-900">
+          ${escHtml(f.name || 'NPTEL Learner')}
+          <span class="block text-[10px] font-medium text-slate-400">${escHtml(f.email || '')}</span>
+        </td>
+        <td class="py-3.5 px-4 text-amber-500 font-bold tracking-wider">${stars}</td>
+        <td class="py-3.5 px-4">
+          <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${badgeCls}">${escHtml(f.category || 'General')}</span>
+        </td>
+        <td class="py-3.5 px-4 text-slate-700 font-medium max-w-xs leading-relaxed">
+          ${escHtml(f.message)}
+        </td>
+        <td class="py-3.5 px-4 text-indigo-600 font-bold font-mono">
+          ${escHtml(f.page || 'index.html')}
+        </td>
+        <td class="py-3.5 px-4 text-slate-400 text-[11px]">
+          ${f.createdDateStr || 'Recently'}
+        </td>
+        <td class="py-3.5 px-4 text-right space-x-1.5">
+          <button data-action="toggle-fb-status" data-id="${f.id}" data-status="${!f.reviewed}" class="px-2.5 py-1 ${f.reviewed ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-600'} hover:opacity-80 font-bold rounded-lg transition">
+            ${f.reviewed ? 'Unmark' : '✓ Mark Reviewed'}
+          </button>
+          <button data-action="delete-fb" data-id="${f.id}" class="px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 font-bold rounded-lg transition">
+            Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  // Attach button event listeners
+  fbTableBody.querySelectorAll("button[data-action='toggle-fb-status']").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const status = btn.dataset.status === "true";
+      await toggleFeedbackStatus(id, status);
+      showToast("Feedback status updated!", "info");
+    });
+  });
+
+  fbTableBody.querySelectorAll("button[data-action='delete-fb']").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      if (confirm("Are you sure you want to delete this user feedback entry?")) {
+        await deleteFeedback(id);
+        showToast("Feedback deleted.", "info");
+      }
+    });
+  });
+}
+
+// Category filter pills click handler
+if (fbFilterPills) {
+  fbFilterPills.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentFeedbackFilter = btn.dataset.filter;
+      fbFilterPills.querySelectorAll("button").forEach(b => {
+        if (b === btn) {
+          b.classList.add("bg-indigo-600", "text-white");
+          b.classList.remove("bg-slate-100", "text-slate-700");
+        } else {
+          b.classList.remove("bg-indigo-600", "text-white");
+          b.classList.add("bg-slate-100", "text-slate-700");
+        }
+      });
+      renderFeedbacksTable();
+    });
+  });
 }
 
 if (generateReportBtn) {

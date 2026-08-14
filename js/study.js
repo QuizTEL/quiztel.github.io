@@ -2,8 +2,8 @@
 //  QuizTEL — Study Mode (study.js)
 // ============================================================
 
-import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner } from "./app.js";
-import { trackPageView } from "./analytics.js";
+import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, initFeedbackModal } from "./app.js";
+import { trackPageView, initPresence } from "./analytics.js";
 
 const courseSelect  = document.getElementById("course-select");
 const weekSelect    = document.getElementById("week-select");
@@ -18,6 +18,8 @@ const OPTION_LABELS = ["A", "B", "C", "D"];
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   trackPageView();
+  initPresence();
+  initFeedbackModal();
   showSpinner("Loading courses…");
   try {
     const courses = await loadCourses();
