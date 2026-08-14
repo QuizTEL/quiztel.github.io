@@ -259,12 +259,6 @@ export function initFeedbackModal() {
             </select>
           </div>
 
-          <!-- Auto-Filled Name Input (Uses Chrome autocomplete='name') -->
-          <div>
-            <label for="fb-name" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Your Name (Chrome Profile Auto-filled)</label>
-            <input type="text" id="fb-name" name="name" autocomplete="name" placeholder="Name (e.g. Vigneshwaran T)" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500">
-          </div>
-
           <!-- Message Textarea -->
           <div>
             <label for="fb-message" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Your Message / Feedback</label>
@@ -294,12 +288,6 @@ export function initFeedbackModal() {
   const form = document.getElementById("feedback-form");
   const ratingInput = document.getElementById("fb-rating-val");
   const starBtns = document.querySelectorAll(".fb-star-btn");
-  const nameInput = document.getElementById("fb-name");
-
-  // Pre-fill name from localStorage if saved
-  if (nameInput) {
-    nameInput.value = localStorage.getItem("quiztel_user_name") || "";
-  }
 
   // Star Rating Picker Logic
   starBtns.forEach(btn => {
@@ -357,19 +345,13 @@ export function initFeedbackModal() {
     e.preventDefault();
     const rating = ratingInput.value;
     const category = document.getElementById("fb-category").value;
-    const name = document.getElementById("fb-name").value.trim();
     const message = document.getElementById("fb-message").value.trim();
 
     if (!message) return;
 
-    if (name) {
-      localStorage.setItem("quiztel_user_name", name);
-    }
-
     showSpinner("Submitting feedback...");
     try {
       await submitFeedback({
-        name: name || "NPTEL Learner",
         rating,
         category,
         message,

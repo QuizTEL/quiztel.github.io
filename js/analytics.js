@@ -226,16 +226,20 @@ async function ensureAuth() {
 }
 
 // ── Submit Feedback ───────────────────────────────────────────
-export async function submitFeedback({ name, email, rating, category, message, page }) {
+export async function submitFeedback({ rating, category, message, page }) {
   try {
     await ensureAuth();
     const currentUser = auth.currentUser;
-    const finalName = name || currentUser?.displayName || currentUser?.email || "NPTEL Learner";
-    const finalEmail = email || currentUser?.email || "";
+    
+    // Auto-detect Chrome / Browser profile identity automatically
+    const sessionHash = getSessionId().slice(-4).toUpperCase();
+    const platform = navigator.platform.includes("Win") ? "Windows" : navigator.platform.includes("Mac") ? "Mac" : "Mobile";
+    const autoName = currentUser?.displayName || (currentUser?.email ? currentUser.email.split("@")[0] : `Chrome Learner #${sessionHash} (${platform})`);
+    const autoEmail = currentUser?.email || "";
 
     const docData = {
-      name: finalName,
-      email: finalEmail,
+      name: autoName,
+      email: autoEmail,
       rating: Number(rating) || 5,
       category: category || "General Suggestion",
       message: String(message || "").trim(),
@@ -259,11 +263,15 @@ export async function submitFeedback({ name, email, rating, category, message, p
     // Permission fallback: Save locally so user request succeeds gracefully
     if (err.code === "permission-denied" || (err.message && err.message.toLowerCase().includes("permission"))) {
       try {
+        const sessionHash = getSessionId().slice(-4).toUpperCase();
+        const platform = navigator.platform.includes("Win") ? "Windows" : navigator.platform.includes("Mac") ? "Mac" : "Mobile";
+        const autoName = `Chrome Learner #${sessionHash} (${platform})`;
+
         const offlineQueue = JSON.parse(localStorage.getItem("quiztel_offline_feedbacks") || "[]");
         offlineQueue.push({
           id: "local_" + Date.now(),
-          name: name || "NPTEL Learner",
-          email: email || "",
+          name: autoName,
+          email: "",
           rating: Number(rating) || 5,
           category: category || "General Suggestion",
           message: String(message || "").trim(),
