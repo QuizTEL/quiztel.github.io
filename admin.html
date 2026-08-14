@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard — QuizTEL</title>
-  <meta name="description" content="QuizTEL Admin Panel for managing NPTEL courses, weeks, questions, bulk document import, and viewing analytics.">
+  <meta name="description" content="QuizTEL Admin Panel for managing NPTEL courses, weeks, questions, bulk document import, live real-time analytics, and user feedbacks.">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -127,7 +127,7 @@
         </button>
         <button data-tab="analytics" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-          Stock Market Live Analytics
+          Live Analytics
         </button>
         <button data-tab="feedback" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
           <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
@@ -417,34 +417,255 @@ Explanation: Amazon EC2 provides virtualized infrastructure." class="w-full bg-s
 
       </div>
 
-      <!-- TAB 3: STOCK MARKET STYLE LIVE ANALYTICS DASHBOARD -->
+      <!-- TAB 3: LIVE REAL-TIME ANALYTICS DASHBOARD -->
       <div data-tab-content="analytics" class="hidden space-y-6">
+        
+        <!-- Live Ticker Header Bar -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 sm:p-6 shadow-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="relative flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <span class="text-xs font-mono font-extrabold uppercase tracking-widest text-emerald-400">Live Traffic Streaming</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">Real-Time Analytics Dashboard</h2>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="bg-slate-800/80 border border-slate-700/80 px-4 py-2 rounded-xl">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Live Online People</span>
+              <span id="stat-live-users" class="text-lg font-mono font-black text-emerald-400">0</span>
+            </div>
+            <div class="bg-slate-800/80 border border-slate-700/80 px-4 py-2 rounded-xl">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Peak Hour Today</span>
+              <span id="stat-peak-hour-badge" class="text-lg font-mono font-black text-amber-400">--:00</span>
+            </div>
+            <button id="generate-report-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              CSV Report
+            </button>
+          </div>
+        </div>
+
+        <!-- 6 Metrics Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          
+          <!-- Live Active People -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-emerald-300 transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Live Active Visitors</span>
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="card-live-users" class="text-3xl font-black text-slate-900">0</span>
+              <span class="text-xs font-bold text-emerald-600 flex items-center gap-0.5">● Online Right Now</span>
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <!-- Total Page Views -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-indigo-300 transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Page Views</span>
+              <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </div>
             </div>
-            <div>
-              <span id="stat-attempts" class="block text-2xl font-extrabold text-slate-900">0</span>
-              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quizzes Attempted</span>
+            <div class="flex items-baseline gap-2">
+              <span id="stat-views" class="text-3xl font-black text-slate-900">0</span>
+              <span class="text-xs font-bold text-emerald-600">▲ Live Views</span>
+            </div>
+          </div>
+
+          <!-- Unique Visitors -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-amber-300 transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Unique Visitors</span>
+              <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="stat-visitors" class="text-3xl font-black text-slate-900">0</span>
+              <span class="text-xs font-bold text-slate-500">Distinct Devices</span>
+            </div>
+          </div>
+
+          <!-- Quiz Attendance & Attempts -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-purple-300 transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Quiz Attempts & Attendees</span>
+              <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="stat-attempts" class="text-3xl font-black text-slate-900">0</span>
+              <span class="text-xs font-bold text-purple-600">(<span id="stat-attendees">0</span> Attendees)</span>
+            </div>
+          </div>
+
+          <!-- Avg Quiz Score % -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-blue-300 transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Average Score %</span>
+              <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="stat-avg-score" class="text-3xl font-black text-slate-900">0%</span>
+              <span class="text-xs font-bold text-blue-600">Across Quizzes</span>
+            </div>
+          </div>
+
+          <!-- Total Shares with People -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-pink-300 transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Shared with People</span>
+              <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="stat-shares" class="text-3xl font-black text-slate-900">0</span>
+              <span class="text-xs font-bold text-pink-600">Social Shares</span>
             </div>
           </div>
 
         </div>
 
         <!-- Charts Area -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h3 class="text-sm font-bold text-slate-900 mb-4">Daily Page Views (Last 30 Days)</h3>
-            <canvas id="viewsChart" class="w-full h-64"></canvas>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Real-Time Line Area Chart -->
+          <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl text-white">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                  Real-Time Traffic Stream
+                </h3>
+                <p class="text-[11px] text-slate-400">Live area curve & daily page view trends</p>
+              </div>
+              <span class="text-[10px] font-mono px-2.5 py-1 bg-indigo-900/60 text-indigo-300 rounded-lg border border-indigo-700/50">30-DAY STREAM</span>
+            </div>
+            <div class="h-72">
+              <canvas id="viewsChart" class="w-full h-full"></canvas>
+            </div>
           </div>
+
+          <!-- Peak Hours Distribution Heatmap Chart -->
           <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h3 class="text-sm font-bold text-slate-900 mb-4">Daily Unique Visitors & Attempts</h3>
-            <canvas id="visitorsChart" class="w-full h-64"></canvas>
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-extrabold text-slate-900">Peak Hours Distribution (00:00 - 23:00)</h3>
+                <p class="text-[11px] text-slate-500">Find which hours get maximum student activity</p>
+              </div>
+              <span id="peak-hour-highlight" class="text-xs font-extrabold px-3 py-1 bg-amber-100 text-amber-800 rounded-lg">
+                Peak: --:00
+              </span>
+            </div>
+            <div class="h-72">
+              <canvas id="peakHoursChart" class="w-full h-full"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Quiz Attempts & Visitor Comparison Bar Chart -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-900 mb-4">Daily Unique Visitors & Quiz Attendance Breakdown</h3>
+          <div class="h-64">
+            <canvas id="visitorsChart" class="w-full h-full"></canvas>
           </div>
         </div>
+
+      </div>
+
+      <!-- TAB 4: USER FEEDBACKS MANAGEMENT TAB -->
+      <div data-tab-content="feedback" class="hidden space-y-6">
+        
+        <!-- Feedback Header Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-black text-xl">
+              💬
+            </div>
+            <div>
+              <span id="fb-total-count" class="block text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Feedbacks</span>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xl">
+              ★
+            </div>
+            <div>
+              <span id="fb-avg-rating" class="block text-2xl font-extrabold text-slate-900">5.0</span>
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Star Rating</span>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center font-black text-xl">
+              🐛
+            </div>
+            <div>
+              <span id="fb-bug-count" class="block text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bug Reports</span>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-xl">
+              💡
+            </div>
+            <div>
+              <span id="fb-suggestion-count" class="block text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Suggestions</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-2" id="fb-filter-pills">
+            <button data-filter="all" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition">All</button>
+            <button data-filter="General Suggestion" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">General</button>
+            <button data-filter="Quiz Bug / Error" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">Bugs</button>
+            <button data-filter="Content Correction" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">Content Corrections</button>
+            <button data-filter="Feature Request" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">Feature Requests</button>
+          </div>
+          <span class="text-xs font-medium text-slate-500">Real-time user feedback stream</span>
+        </div>
+
+        <!-- Feedbacks List Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500">
+                  <th class="py-3.5 px-4">User Name (Chrome Profile)</th>
+                  <th class="py-3.5 px-4">Rating</th>
+                  <th class="py-3.5 px-4">Category</th>
+                  <th class="py-3.5 px-4">Message</th>
+                  <th class="py-3.5 px-4">Origin Page</th>
+                  <th class="py-3.5 px-4">Date</th>
+                  <th class="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="feedbacks-table-body">
+                <tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading user feedbacks...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
     </div>
