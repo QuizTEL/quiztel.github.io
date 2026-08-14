@@ -78,49 +78,89 @@ courseSelect.addEventListener("change", () => {
   unsubQuizWeeks = subscribeToWeeks(courseId, (weeks) => {
     allWeeks = weeks;
     if (weeks.length === 0) {
-      weekContainer.innerHTML = `<p class="text-sm text-slate-400">No weeks found for this course.</p>`;
+      weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">No weeks found for this course.</p>`;
+      validateStart();
       return;
     }
 
-    weekContainer.innerHTML = weeks.map(w => `
-      <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition cursor-pointer bg-slate-50/50">
-        <input type="checkbox" name="week" value="${w.id}" class="week-chk w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
-        <span class="text-xs font-bold text-slate-800">${escHtml(w.name)}</span>
-      </label>
-    `).join("");
-
-    bindWeekCheckboxes();
+    renderWeekPills(weeks);
   });
 });
 
-
-function renderWeekCheckboxes(weeks) {
-  if (!weeks.length) {
-    weekContainer.innerHTML = `<p class="text-sm text-red-400">No weeks found for this course.</p>`;
-    return;
-  }
+function renderWeekPills(weeks) {
   weekContainer.innerHTML = weeks.map(w => `
-    <label class="week-checkbox-label flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-indigo-50 transition">
-      <input type="checkbox" name="week" value="${w.id}" class="w-4 h-4 accent-indigo-600" />
-      <span class="text-sm text-gray-700">${escHtml(w.name)}</span>
-    </label>`).join("");
-  weekContainer.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    cb.addEventListener("change", validateStart);
+    <label class="week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none">
+      <input type="checkbox" name="week" value="${w.id}" class="week-chk sr-only">
+      <span class="week-title text-xs font-bold text-slate-700 group-hover:text-indigo-600 transition">${escHtml(w.name)}</span>
+      <span class="week-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
+    </label>
+  `).join("");
+
+  weekContainer.querySelectorAll("input[type='checkbox']").forEach(cb => {
+    cb.addEventListener("change", () => {
+      updateWeekPillStyles();
+      validateStart();
+    });
   });
+
+  updateWeekPillStyles();
   validateStart();
 }
 
-if (allWeeksChk) {
-  allWeeksChk.addEventListener("change", () => {
-    weekContainer.querySelectorAll("input[type=checkbox]").forEach(cb => {
-      cb.checked = allWeeksChk.checked;
-    });
+function updateWeekPillStyles() {
+  weekContainer.querySelectorAll(".week-pill-card").forEach(card => {
+    const chk = card.querySelector("input[type='checkbox']");
+    const badge = card.querySelector(".week-badge");
+    const title = card.querySelector(".week-title");
+
+    if (chk.checked) {
+      card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group select-none";
+      if (title) title.className = "week-title text-xs font-extrabold text-indigo-900 transition";
+      if (badge) badge.className = "week-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+    } else {
+      card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none";
+      if (title) title.className = "week-title text-xs font-bold text-slate-700 group-hover:text-indigo-600 transition";
+      if (badge) badge.className = "week-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition";
+    }
+  });
+}
+
+// "Select All Weeks" button handler
+const toggleAllBtn = document.getElementById("toggle-all-weeks-btn");
+if (toggleAllBtn) {
+  toggleAllBtn.addEventListener("click", () => {
+    const chks = [...weekContainer.querySelectorAll("input[type='checkbox']")];
+    if (!chks.length) return;
+    const allChecked = chks.every(cb => cb.checked);
+    chks.forEach(cb => { cb.checked = !allChecked; });
+    updateWeekPillStyles();
     validateStart();
   });
 }
 
+// ── Randomization Mode Pill Styles & Event Listeners ──────────
+function updateModePillStyles() {
+  document.querySelectorAll(".mode-pill-card").forEach(card => {
+    const radio = card.querySelector("input[type='radio']");
+    const badge = card.querySelector(".mode-badge");
+
+    if (radio.checked) {
+      card.className = "mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group select-none";
+      if (badge) badge.className = "mode-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0 scale-110";
+    } else {
+      card.className = "mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group select-none";
+      if (badge) badge.className = "mode-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0";
+    }
+  });
+}
+
+document.querySelectorAll(".mode-pill-card input[type='radio']").forEach(radio => {
+  radio.addEventListener("change", updateModePillStyles);
+});
+updateModePillStyles();
+
 function validateStart() {
-  const anyWeekChecked = [...weekContainer.querySelectorAll("input[type=checkbox]")].some(cb => cb.checked);
+  const anyWeekChecked = [...weekContainer.querySelectorAll("input[type='checkbox']")].some(cb => cb.checked);
   startBtn.disabled = !anyWeekChecked;
 }
 
