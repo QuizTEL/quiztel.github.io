@@ -1,8 +1,20 @@
-// ============================================================
-//  QuizTEL — Admin Dashboard (admin.js)
-//  Handles Firebase Auth, CMS (Courses/Weeks/Questions),
-//  Bulk Import (PDF/DOCX), and Live Analytics.
-// ============================================================
+import { auth, db } from "./firebase-config.js";
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  collection,
+  doc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt } from "./app.js";
 import { 
@@ -138,6 +150,60 @@ function init() {
     }
   });
 }
+
+// ── Auth Handlers ─────────────────────────────────────────────
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = loginEmail ? loginEmail.value.trim() : "";
+    const pass  = loginPass ? loginPass.value.trim() : "";
+    if (!email || !pass) return;
+
+    showSpinner("Authenticating...");
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      showToast("Successfully logged in as Admin!", "success");
+      loginForm.reset();
+    } catch (err) {
+      console.error("Firebase Login Error:", err);
+      alert("Login Error: " + err.message);
+      showToast("Login failed: " + err.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  });
+}
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      showToast("Logged out.", "info");
+    } catch (err) {
+      showToast("Logout error: " + err.message, "error");
+    }
+  });
+}
+
+// ── Tab Switching ─────────────────────────────────────────────
+tabBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.tab;
+    tabBtns.forEach(b => {
+      if (b === btn) {
+        b.classList.add("border-indigo-600", "text-indigo-600", "font-bold");
+        b.classList.remove("border-transparent", "text-gray-500");
+      } else {
+        b.classList.remove("border-indigo-600", "text-indigo-600", "font-bold");
+        b.classList.add("border-transparent", "text-gray-500");
+      }
+    });
+
+    tabContents.forEach(content => {
+      content.classList.toggle("hidden", content.dataset.tabContent !== target);
+    });
+  });
+});
 
 // ── Live Presence UI Handler ──────────────────────────────────
 function updatePresenceUI({ activeCount, activePages }) {
