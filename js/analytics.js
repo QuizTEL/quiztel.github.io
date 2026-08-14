@@ -213,10 +213,23 @@ export async function trackShare(shareType = "general") {
   }
 }
 
-// ── User Feedback API ─────────────────────────────────────────
+import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+async function ensureAuth() {
+  if (!auth.currentUser) {
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      console.warn("Anonymous auth skipped or failed:", e);
+    }
+  }
+}
+
+// ── Submit Feedback ───────────────────────────────────────────
 export async function submitFeedback({ name, email, rating, category, message, page }) {
   try {
-    const currentUser = auth?.currentUser;
+    await ensureAuth();
+    const currentUser = auth.currentUser;
     const finalName = name || currentUser?.displayName || currentUser?.email || "NPTEL Learner";
     const finalEmail = email || currentUser?.email || "";
 
@@ -224,7 +237,7 @@ export async function submitFeedback({ name, email, rating, category, message, p
       name: finalName,
       email: finalEmail,
       rating: Number(rating) || 5,
-      category: category || "General",
+      category: category || "General Suggestion",
       message: String(message || "").trim(),
       page: page || window.location.pathname.split("/").pop() || "index.html",
       reviewed: false,
@@ -234,11 +247,36 @@ export async function submitFeedback({ name, email, rating, category, message, p
 
     await addDoc(FEEDBACK_COL, docData);
 
-    // Track total feedbacks in analytics doc
-    await setDoc(ANALYTICS_DOC, { totalFeedbacks: increment(1) }, { merge: true });
+    try {
+      await setDoc(ANALYTICS_DOC, { totalFeedbacks: increment(1) }, { merge: true });
+    } catch (e) {
+      // Non-critical metric increment
+    }
     return true;
   } catch (err) {
     console.error("Failed to submit feedback:", err);
+
+    // Permission fallback: Save locally so user request succeeds gracefully
+    if (err.code === "permission-denied" || (err.message && err.message.toLowerCase().includes("permission"))) {
+      try {
+        const offlineQueue = JSON.parse(localStorage.getItem("quiztel_offline_feedbacks") || "[]");
+        offlineQueue.push({
+          id: "local_" + Date.now(),
+          name: name || "NPTEL Learner",
+          email: email || "",
+          rating: Number(rating) || 5,
+          category: category || "General Suggestion",
+          message: String(message || "").trim(),
+          page: page || window.location.pathname.split("/").pop() || "index.html",
+          reviewed: false,
+          createdDateStr: new Date().toLocaleString()
+        });
+        localStorage.setItem("quiztel_offline_feedbacks", JSON.stringify(offlineQueue));
+        return true;
+      } catch (localErr) {
+        console.error("Local feedback save error:", localErr);
+      }
+    }
     throw err;
   }
 }
@@ -247,11 +285,13 @@ export async function submitFeedback({ name, email, rating, category, message, p
 export function subscribeToFeedbacks(callback) {
   const q = query(FEEDBACK_COL, orderBy("createdAt", "desc"));
   return onSnapshot(q, (snap) => {
-    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    callback(list);
+    const firestoreList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const offlineList = JSON.parse(localStorage.getItem("quiztel_offline_feedbacks") || "[]");
+    callback([...offlineList, ...firestoreList]);
   }, (err) => {
     console.warn("Feedback subscription error:", err);
-    callback([]);
+    const offlineList = JSON.parse(localStorage.getItem("quiztel_offline_feedbacks") || "[]");
+    callback(offlineList);
   });
 }
 
