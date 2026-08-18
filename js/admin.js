@@ -17,7 +17,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { 
-  loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt,
+  loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt, initTheme,
   subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources
 } from "./app.js";
 import { 
@@ -123,6 +123,7 @@ let viewsChart, visitorsChart, peakHoursChart;
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
+  initTheme();
   trackPageView();
 
   // Auth state observer

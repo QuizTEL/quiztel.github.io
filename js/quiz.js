@@ -5,7 +5,7 @@
 
 import {
   loadCourses, loadWeeks, loadQuestions,
-  populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal,
+  populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal, initTheme,
   subscribeToCourses, subscribeToWeeks
 } from "./app.js";
 import { trackPageView, incrementQuizAttempts, initPresence, trackQuizCompletion, trackShare } from "./analytics.js";
@@ -52,6 +52,7 @@ let unsubQuizWeeks   = null;
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
+  initTheme();
   trackPageView();
   initPresence();
   initFeedbackModal();

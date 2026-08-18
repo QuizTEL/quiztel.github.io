@@ -3,7 +3,7 @@
 // ============================================================
 
 import { 
-  loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, initFeedbackModal,
+  loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, initFeedbackModal, initTheme,
   subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources
 } from "./app.js";
 import { trackPageView, initPresence } from "./analytics.js";
@@ -25,6 +25,7 @@ let unsubStudyResources = null;
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
+  initTheme();
   trackPageView();
   initPresence();
   initFeedbackModal();

@@ -12,6 +12,117 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// ── Dark / Light Theme Manager ───────────────────────────────
+export function initTheme() {
+  injectDarkThemeStyles();
+
+  const savedTheme = localStorage.getItem("quiztel_theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+
+  if (isDark) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+
+  // Update all theme toggle buttons across navigation headers
+  document.querySelectorAll("[data-theme-toggle]").forEach(btn => {
+    btn.setAttribute("aria-label", "Toggle dark/light theme");
+    updateToggleBtnIcon(btn, isDark);
+
+    btn.addEventListener("click", () => {
+      const currentlyDark = document.documentElement.classList.contains("dark");
+      const nextDark = !currentlyDark;
+
+      if (nextDark) {
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("quiztel_theme", "dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("quiztel_theme", "light");
+      }
+
+      document.querySelectorAll("[data-theme-toggle]").forEach(b => updateToggleBtnIcon(b, nextDark));
+    });
+  });
+}
+
+function updateToggleBtnIcon(btn, isDark) {
+  if (isDark) {
+    // Sun Icon (Switch to Light)
+    btn.innerHTML = `<svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`;
+  } else {
+    // Moon Icon (Switch to Dark)
+    btn.innerHTML = `<svg class="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>`;
+  }
+}
+
+function injectDarkThemeStyles() {
+  if (document.getElementById("quiztel-dark-styles")) return;
+  const styleEl = document.createElement("style");
+  styleEl.id = "quiztel-dark-styles";
+  styleEl.textContent = `
+    html.dark {
+      color-scheme: dark;
+    }
+    html.dark body {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    html.dark .bg-white {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+    }
+    html.dark .bg-slate-50, html.dark .bg-slate-50\\/80, html.dark .bg-slate-50\\/60, html.dark .bg-slate-50\\/50, html.dark .bg-slate-50\\/40 {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    html.dark .bg-slate-100 {
+      background-color: #334155 !important;
+      color: #f8fafc !important;
+    }
+    html.dark .text-slate-900, html.dark .text-slate-800, html.dark .text-slate-700, html.dark .text-gray-800, html.dark .text-gray-700 {
+      color: #f8fafc !important;
+    }
+    html.dark .text-slate-600, html.dark .text-slate-500, html.dark .text-slate-400, html.dark .text-gray-600, html.dark .text-gray-500 {
+      color: #cbd5e1 !important;
+    }
+    html.dark .border-slate-200, html.dark .border-slate-100, html.dark .border-slate-200\\/80, html.dark .border-gray-200, html.dark .border-gray-100 {
+      border-color: #334155 !important;
+    }
+    html.dark select, html.dark input[type="text"], html.dark input[type="email"], html.dark input[type="password"], html.dark textarea {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #475569 !important;
+    }
+    html.dark header {
+      background-color: rgba(15, 23, 42, 0.9) !important;
+      border-color: #1e293b !important;
+    }
+    html.dark .study-card, html.dark .week-pill-card, html.dark .mode-pill-card {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    html.dark .week-pill-card.border-indigo-600, html.dark .mode-pill-card.border-indigo-600 {
+      background-color: rgba(99, 102, 241, 0.2) !important;
+      border-color: #6366f1 !important;
+    }
+    html.dark table thead th {
+      background-color: #0f172a !important;
+      color: #94a3b8 !important;
+      border-color: #334155 !important;
+    }
+    html.dark tr.border-b {
+      border-color: #334155 !important;
+    }
+    html.dark tr:hover {
+      background-color: #334155 !important;
+    }
+  `;
+  document.head.appendChild(styleEl);
+}
+
 // ── Firestore Helpers ─────────────────────────────────────────
 
 /** Fetch all courses → [{ id, name }] */
