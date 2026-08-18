@@ -17,8 +17,7 @@ export function initTheme() {
   injectDarkThemeStyles();
 
   const savedTheme = localStorage.getItem("quiztel_theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const isDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+  const isDark = savedTheme === "dark"; // Default is ALWAYS light mode unless user explicitly selected dark
 
   if (isDark) {
     document.documentElement.classList.add("dark");
