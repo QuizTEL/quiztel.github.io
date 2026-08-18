@@ -23,28 +23,19 @@ let unsubStudyWeeks = null;
 let unsubStudyQuestions = null;
 let unsubStudyResources = null;
 
-// ── Init ──────────────────────────────────────────────────────
-function init() {
-  initTheme();
-  trackPageView();
-  initPresence();
-  initFeedbackModal();
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const targetCourseId = urlParams.get("course");
-
-  unsubStudyCourses = subscribeToCourses((courses) => {
-    const curVal = courseSelect.value || targetCourseId;
-    populateSelect(courseSelect, courses, "— Select a Course —");
-    if (curVal && courses.some(c => c.id === curVal)) {
-      courseSelect.value = curVal;
-      courseSelect.dispatchEvent(new Event("change"));
-    }
-  });
+// ── Helper to match course ID or name ─────────────────────────
+function findCourseMatch(courses, paramVal) {
+  if (!paramVal) return null;
+  const decoded = decodeURIComponent(paramVal).trim().toLowerCase();
+  return courses.find(c => 
+    c.id.toLowerCase() === decoded || 
+    c.name.toLowerCase() === decoded ||
+    encodeURIComponent(c.id).toLowerCase() === decoded
+  );
 }
 
 // ── Course selection → load weeks ─────────────────────────────
-courseSelect.addEventListener("change", () => {
+function handleCourseSelectionChange() {
   const cid = courseSelect.value;
 
   if (unsubStudyWeeks) { unsubStudyWeeks(); unsubStudyWeeks = null; }
@@ -53,6 +44,63 @@ courseSelect.addEventListener("change", () => {
 
   weekSelect.innerHTML = `<option value="" disabled selected>— Select a Week —</option>`;
   weekSelect.disabled = !cid;
+  questionsArea.innerHTML = "";
+  if (qCount) qCount.textContent = "";
+
+  if (emptyState) emptyState.classList.remove("hidden");
+
+  if (!cid) return;
+
+  showSpinner("Loading weeks…");
+  unsubStudyWeeks = subscribeToWeeks(cid, (weeks) => {
+    populateSelect(weekSelect, weeks, "— Select a Week —");
+    weekSelect.disabled = false;
+    hideSpinner();
+  });
+
+  unsubStudyResources = subscribeToResources(cid, (resources) => {
+    if (resources && resources.length > 0) {
+      if (resourcesArea) resourcesArea.classList.remove("hidden");
+      if (resourcesList) {
+        resourcesList.innerHTML = resources.map(r => `
+          <div class="flex items-center justify-between p-3.5 bg-indigo-50/60 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700 rounded-xl">
+            <span class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">${escHtml(r.title || r.name)}</span>
+            <a href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+              Download PDF &darr;
+            </a>
+          </div>
+        `).join("");
+      }
+    } else {
+      if (resourcesArea) resourcesArea.classList.add("hidden");
+    }
+  });
+}
+
+courseSelect.addEventListener("change", handleCourseSelectionChange);
+
+// ── Init ──────────────────────────────────────────────────────
+function init() {
+  initTheme();
+  trackPageView();
+  initPresence();
+  initFeedbackModal();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetCourseParam = urlParams.get("course") || urlParams.get("name");
+
+  unsubStudyCourses = subscribeToCourses((courses) => {
+    populateSelect(courseSelect, courses, "— Select a Course —");
+
+    const matchedCourse = findCourseMatch(courses, targetCourseParam);
+    if (matchedCourse) {
+      courseSelect.value = matchedCourse.id;
+      handleCourseSelectionChange();
+    } else if (courseSelect.value) {
+      handleCourseSelectionChange();
+    }
+  });
+}
   questionsArea.innerHTML = "";
   if (qCount) qCount.textContent = "";
   if (emptyState) emptyState.classList.remove("hidden");

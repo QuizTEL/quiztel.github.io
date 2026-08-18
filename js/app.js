@@ -17,12 +17,15 @@ export function initTheme() {
   injectDarkThemeStyles();
 
   const savedTheme = localStorage.getItem("quiztel_theme");
-  const isDark = savedTheme === "dark"; // Default is ALWAYS light mode unless user explicitly selected dark
+  const isDark = savedTheme === "dark";
 
   if (isDark) {
     document.documentElement.classList.add("dark");
   } else {
     document.documentElement.classList.remove("dark");
+    if (!savedTheme) {
+      try { localStorage.setItem("quiztel_theme", "light"); } catch(e) {}
+    }
   }
 
   // Update all theme toggle buttons across navigation headers
@@ -30,16 +33,20 @@ export function initTheme() {
     btn.setAttribute("aria-label", "Toggle dark/light theme");
     updateToggleBtnIcon(btn, isDark);
 
-    btn.addEventListener("click", () => {
+    const newBtn = btn.cloneNode(true);
+    if (btn.parentNode) btn.parentNode.replaceChild(newBtn, btn);
+    updateToggleBtnIcon(newBtn, isDark);
+
+    newBtn.addEventListener("click", () => {
       const currentlyDark = document.documentElement.classList.contains("dark");
       const nextDark = !currentlyDark;
 
       if (nextDark) {
         document.documentElement.classList.add("dark");
-        localStorage.setItem("quiztel_theme", "dark");
+        try { localStorage.setItem("quiztel_theme", "dark"); } catch(e) {}
       } else {
         document.documentElement.classList.remove("dark");
-        localStorage.setItem("quiztel_theme", "light");
+        try { localStorage.setItem("quiztel_theme", "light"); } catch(e) {}
       }
 
       document.querySelectorAll("[data-theme-toggle]").forEach(b => updateToggleBtnIcon(b, nextDark));
