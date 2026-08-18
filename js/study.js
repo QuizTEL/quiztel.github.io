@@ -30,10 +30,16 @@ function init() {
   initPresence();
   initFeedbackModal();
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetCourseId = urlParams.get("course");
+
   unsubStudyCourses = subscribeToCourses((courses) => {
-    const curVal = courseSelect.value;
+    const curVal = courseSelect.value || targetCourseId;
     populateSelect(courseSelect, courses, "— Select a Course —");
-    if (curVal) courseSelect.value = curVal;
+    if (curVal && courses.some(c => c.id === curVal)) {
+      courseSelect.value = curVal;
+      courseSelect.dispatchEvent(new Event("change"));
+    }
   });
 }
 

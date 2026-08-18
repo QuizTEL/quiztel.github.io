@@ -186,8 +186,8 @@
               <p class="text-xs text-slate-500">Access assignment questions, answer keys, and timed quiz modes for this course.</p>
             </div>
             <div class="mt-6 flex items-center gap-3">
-              <a href="study.html" class="flex-1 text-center px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition">Study</a>
-              <a href="quiz.html" class="flex-1 text-center px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition">Quiz</a>
+              <a href="study.html?course=${encodeURIComponent(c.id)}" class="flex-1 text-center px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition">Study</a>
+              <a href="quiz.html?course=${encodeURIComponent(c.id)}" class="flex-1 text-center px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition">Quiz</a>
             </div>
           </div>
         `).join("");
