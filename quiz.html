@@ -89,19 +89,19 @@
   <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     <!-- STEP 1: SETUP PANEL -->
-    <div id="setup-panel" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-      <div class="border-b border-slate-100 pb-6 mb-6">
-        <h1 class="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-          <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div id="setup-panel" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 sm:p-8 transition-colors duration-200">
+      <div class="border-b border-slate-100 dark:border-slate-700 pb-6 mb-6">
+        <h1 class="text-2xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <svg class="w-7 h-7 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           Configure Your Quiz
         </h1>
-        <p class="text-sm text-slate-500 mt-1">Select week coverage and choose your preferred randomization mode.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Select week coverage and choose your preferred randomization mode.</p>
       </div>
 
       <!-- Course Selection -->
       <div class="mb-6">
-        <label for="course-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">1. Select Course</label>
-        <select id="course-select" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 font-medium transition">
+        <label for="course-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">1. Select Course</label>
+        <select id="course-select" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 font-medium transition">
           <option value="" disabled selected>Loading courses...</option>
         </select>
       </div>
@@ -109,55 +109,55 @@
       <!-- Week Selection (Multi-select) -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-3">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">2. Select Week(s)</label>
-          <button type="button" id="toggle-all-weeks-btn" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 transition duration-150 flex items-center gap-1.5 cursor-pointer shadow-sm">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">2. Select Week(s)</label>
+          <button type="button" id="toggle-all-weeks-btn" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 transition duration-150 flex items-center gap-1.5 cursor-pointer shadow-sm">
             ✨ Select All Weeks
           </button>
         </div>
         
-        <div id="week-container" class="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 max-h-60 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <p class="text-sm text-slate-400 col-span-full text-center py-4">Select a course above to view available weeks.</p>
+        <div id="week-container" class="bg-slate-50/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 max-h-60 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">Select a course above to view available weeks.</p>
         </div>
       </div>
 
       <!-- Randomization Modes -->
       <div class="mb-8">
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">3. Randomization Mode</label>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">3. Randomization Mode</label>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="mode-cards-container">
           
-          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 hover:shadow-md transition-all duration-200 group select-none">
+          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200 group select-none">
             <input type="radio" name="quiz-mode" value="normal" checked class="sr-only">
-            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
+            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
             <div>
-              <span class="block text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition">▶️ Normal Mode</span>
-              <span class="block text-xs text-slate-500 mt-0.5">Original question and option order</span>
+              <span class="block text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 transition">▶️ Normal Mode</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">Original question and option order</span>
             </div>
           </label>
 
-          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 hover:shadow-md transition-all duration-200 group select-none">
+          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200 group select-none">
             <input type="radio" name="quiz-mode" value="mixed-questions" class="sr-only">
-            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
+            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
             <div>
-              <span class="block text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition">🔀 Mixed Questions</span>
-              <span class="block text-xs text-slate-500 mt-0.5">Shuffled question order, original option order</span>
+              <span class="block text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 transition">🔀 Mixed Questions</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">Shuffled question order, original option order</span>
             </div>
           </label>
 
-          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 hover:shadow-md transition-all duration-200 group select-none">
+          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200 group select-none">
             <input type="radio" name="quiz-mode" value="mixed-options" class="sr-only">
-            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
+            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
             <div>
-              <span class="block text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition">🔀 Mixed Options</span>
-              <span class="block text-xs text-slate-500 mt-0.5">Original question order, shuffled A/B/C/D choices</span>
+              <span class="block text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 transition">🔀 Mixed Options</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">Original question order, shuffled A/B/C/D choices</span>
             </div>
           </label>
 
-          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 hover:shadow-md transition-all duration-200 group select-none">
+          <label class="mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200 group select-none">
             <input type="radio" name="quiz-mode" value="mixed-both" class="sr-only">
-            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
+            <div class="mode-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0">✓</div>
             <div>
-              <span class="block text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition">🎲 Mixed Both (Ultimate)</span>
+              <span class="block text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 transition">🎲 Mixed Both (Ultimate)</span>
               <span class="block text-xs text-slate-500 mt-0.5">Shuffled questions AND shuffled options</span>
             </div>
           </label>

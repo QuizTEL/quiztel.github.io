@@ -61,9 +61,9 @@ function init() {
   const targetCourseId = urlParams.get("course");
 
   unsubQuizCourses = subscribeToCourses((courses) => {
-    const curVal = courseSelect.value || targetCourseId;
+    const curVal = courseSelect.value || (targetCourseId && courses.some(c => c.id === targetCourseId) ? targetCourseId : "");
     populateSelect(courseSelect, courses, "— Choose a Course —");
-    if (curVal && courses.some(c => c.id === curVal)) {
+    if (curVal) {
       courseSelect.value = curVal;
       courseSelect.dispatchEvent(new Event("change"));
     }
