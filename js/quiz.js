@@ -50,44 +50,6 @@ let autoAdvanceTimeout  = null;
 let unsubQuizCourses = null;
 let unsubQuizWeeks   = null;
 
-// ── Helper to match course ID or name ─────────────────────────
-function findCourseMatch(courses, paramVal) {
-  if (!paramVal) return null;
-  const decoded = decodeURIComponent(paramVal).trim().toLowerCase();
-  return courses.find(c => 
-    c.id.toLowerCase() === decoded || 
-    c.name.toLowerCase() === decoded ||
-    encodeURIComponent(c.id).toLowerCase() === decoded
-  );
-}
-
-// ── Course → live load weeks into checkboxes ──────────────────
-function handleQuizCourseSelectionChange() {
-  courseId = courseSelect.value;
-  startBtn.disabled = true;
-  if (allWeeksChk) allWeeksChk.checked = false;
-
-  if (unsubQuizWeeks) { unsubQuizWeeks(); unsubQuizWeeks = null; }
-
-  if (!courseId) {
-    weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">Select a course above to view available weeks.</p>`;
-    return;
-  }
-
-  unsubQuizWeeks = subscribeToWeeks(courseId, (weeks) => {
-    allWeeks = weeks;
-    if (weeks.length === 0) {
-      weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">No weeks found for this course.</p>`;
-      validateStart();
-      return;
-    }
-
-    renderWeekPills(weeks);
-  });
-}
-
-courseSelect.addEventListener("change", handleQuizCourseSelectionChange);
-
 // ── Init ──────────────────────────────────────────────────────
 function init() {
   initTheme();
@@ -96,20 +58,25 @@ function init() {
   initFeedbackModal();
 
   const urlParams = new URLSearchParams(window.location.search);
-  const targetCourseParam = urlParams.get("course") || urlParams.get("name");
+  const targetCourseId = urlParams.get("course");
 
   unsubQuizCourses = subscribeToCourses((courses) => {
+    const curVal = courseSelect.value || targetCourseId;
     populateSelect(courseSelect, courses, "— Choose a Course —");
-
-    const matchedCourse = findCourseMatch(courses, targetCourseParam);
-    if (matchedCourse) {
-      courseSelect.value = matchedCourse.id;
-      handleQuizCourseSelectionChange();
-    } else if (courseSelect.value) {
-      handleQuizCourseSelectionChange();
+    if (curVal && courses.some(c => c.id === curVal)) {
+      courseSelect.value = curVal;
+      courseSelect.dispatchEvent(new Event("change"));
     }
   });
 }
+
+// ── Course → live load weeks into checkboxes ──────────────────
+courseSelect.addEventListener("change", () => {
+  courseId = courseSelect.value;
+  startBtn.disabled = true;
+  if (allWeeksChk) allWeeksChk.checked = false;
+
+  if (unsubQuizWeeks) { unsubQuizWeeks(); unsubQuizWeeks = null; }
 
   if (!courseId) {
     weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">Select a course above to view available weeks.</p>`;
@@ -143,6 +110,13 @@ function renderWeekPills(weeks) {
       validateStart();
     });
   });
+
+  // Auto-check first week when navigating directly from Home page course card
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("course") && weeks.length > 0) {
+    const firstChk = weekContainer.querySelector("input[type='checkbox']");
+    if (firstChk) firstChk.checked = true;
+  }
 
   updateWeekPillStyles();
   validateStart();
