@@ -6,10 +6,26 @@
   <title>Quiz Engine — QuizTEL</title>
   <meta name="description" content="Take interactive, randomized quizzes for NPTEL courses with QuizTEL's advanced quiz engine.">
   
+  <!-- Anti-Flash Synchronous Theme Initialization -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem("quiztel_theme");
+        var d = t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (d) document.documentElement.classList.add("dark");
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    html.dark { background-color: #0f172a !important; color: #f8fafc !important; color-scheme: dark; }
+    html.dark body { background-color: #0f172a !important; color: #f8fafc !important; }
+  </style>
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
