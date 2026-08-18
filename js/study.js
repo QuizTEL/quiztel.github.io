@@ -137,15 +137,15 @@ function renderQuestions(questions) {
     }).join("");
 
     const explHTML = q.explanation && q.explanation !== "No explanation provided."
-      ? `<details class="group mt-4 border border-indigo-100 dark:border-slate-700 bg-indigo-50/50 dark:bg-slate-800/80 rounded-xl overflow-hidden transition-all duration-200">
-           <summary class="flex items-center justify-between p-3.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 cursor-pointer select-none hover:bg-indigo-100/50 dark:hover:bg-slate-700/50 transition">
+      ? `<details class="expl-details group mt-4 border border-indigo-200/80 bg-indigo-50/70 rounded-xl overflow-hidden transition-all duration-200">
+           <summary class="flex items-center justify-between p-3.5 text-xs font-bold text-indigo-900 cursor-pointer select-none hover:bg-indigo-100/70 transition">
              <span class="flex items-center gap-2">
-               <svg class="w-4 h-4 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+               <svg class="w-4 h-4 text-indigo-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
                View Detailed Explanation
              </span>
-             <svg class="w-4 h-4 text-indigo-400 transform group-open:rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+             <svg class="w-4 h-4 text-indigo-500 transform group-open:rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
            </summary>
-           <div class="px-4 pb-4 pt-1.5 border-t border-indigo-100 dark:border-slate-700 text-xs sm:text-sm text-indigo-900 dark:text-indigo-200 leading-relaxed">
+           <div class="expl-body px-4 pb-4 pt-2 border-t border-indigo-200/60 bg-white/70 text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
              ${escHtml(q.explanation)}
            </div>
          </details>`

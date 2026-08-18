@@ -119,6 +119,21 @@ function injectDarkThemeStyles() {
     html.dark tr:hover {
       background-color: #334155 !important;
     }
+    html.dark .expl-details {
+      background-color: rgba(30, 41, 59, 0.9) !important;
+      border-color: #334155 !important;
+    }
+    html.dark .expl-details summary {
+      color: #818cf8 !important;
+    }
+    html.dark .expl-details summary:hover {
+      background-color: #334155 !important;
+    }
+    html.dark .expl-body {
+      background-color: #0f172a !important;
+      border-color: #334155 !important;
+      color: #cbd5e1 !important;
+    }
   `;
   document.head.appendChild(styleEl);
 }
