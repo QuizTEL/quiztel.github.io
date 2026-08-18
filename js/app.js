@@ -134,6 +134,35 @@ function injectDarkThemeStyles() {
       border-color: #334155 !important;
       color: #cbd5e1 !important;
     }
+    /* Options & Badges in Dark Mode */
+    html.dark .bg-gray-50 {
+      background-color: #334155 !important;
+      border-color: #475569 !important;
+      color: #f8fafc !important;
+    }
+    html.dark .bg-gray-50 .text-gray-700, html.dark .bg-gray-50 span {
+      color: #f8fafc !important;
+    }
+    html.dark .bg-emerald-50 {
+      background-color: rgba(6, 78, 59, 0.7) !important;
+      border-color: #10b981 !important;
+      color: #ecfdf5 !important;
+    }
+    html.dark .bg-emerald-50 .text-gray-700, html.dark .bg-emerald-50 span {
+      color: #ecfdf5 !important;
+    }
+    html.dark .bg-red-50 {
+      background-color: rgba(153, 27, 27, 0.7) !important;
+      border-color: #ef4444 !important;
+      color: #fef2f2 !important;
+    }
+    html.dark .bg-red-50 .text-gray-700, html.dark .bg-red-50 span {
+      color: #fef2f2 !important;
+    }
+    html.dark .bg-gray-200 {
+      background-color: #475569 !important;
+      color: #cbd5e1 !important;
+    }
   `;
   document.head.appendChild(styleEl);
 }
