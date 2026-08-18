@@ -40,11 +40,12 @@ const shareScoreBtn = document.getElementById("share-score-btn");
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
 // ── State ─────────────────────────────────────────────────────
-let allWeeks     = [];
-let builtQuiz    = [];   // [{text, options, correctOptionIndex, explanation, origCorrectIdx}]
-let userAnswers  = [];   // index of selected option per question, or null
-let currentQIdx  = 0;
-let courseId     = "";
+let allWeeks            = [];
+let builtQuiz           = [];   // [{text, options, correctOptionIndex, explanation}]
+let userAnswers         = [];   // index of selected option per question, or null
+let currentQIdx         = 0;
+let courseId            = "";
+let autoAdvanceTimeout  = null;
 
 let unsubQuizCourses = null;
 let unsubQuizWeeks   = null;
@@ -71,7 +72,7 @@ courseSelect.addEventListener("change", () => {
   if (unsubQuizWeeks) { unsubQuizWeeks(); unsubQuizWeeks = null; }
 
   if (!courseId) {
-    weekContainer.innerHTML = `<p class="text-sm text-slate-400">Select a course to view available weeks.</p>`;
+    weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">Select a course above to view available weeks.</p>`;
     return;
   }
 
@@ -238,64 +239,131 @@ function buildQuiz(questions, mode) {
 
 // ── Render current question ───────────────────────────────────
 function renderQuestion() {
-  const q    = builtQuiz[currentQIdx];
-  const total = builtQuiz.length;
+  if (autoAdvanceTimeout) {
+    clearTimeout(autoAdvanceTimeout);
+    autoAdvanceTimeout = null;
+  }
 
-  // Progress
+  const q       = builtQuiz[currentQIdx];
+  const total   = builtQuiz.length;
+  const userAns = userAnswers[currentQIdx];
+  const isAnswered = userAns !== null && userAns !== undefined;
+
+  // Progress Bar & Question Counter
   const pct = ((currentQIdx + 1) / total) * 100;
   if (progressBar) progressBar.style.width = pct + "%";
   if (qCounter)    qCounter.textContent = `Question ${currentQIdx + 1} of ${total}`;
 
-  // Question text
+  // Question Text
   if (questionText) questionText.textContent = q.text;
 
-  // Options
+  // Options Grid
   if (optionsGrid) {
     optionsGrid.innerHTML = q.options.map((opt, i) => {
-      const isSelected = userAnswers[currentQIdx] === i;
+      let btnCls   = "option-btn w-full flex items-center justify-between gap-3 text-left p-4 rounded-2xl border-2 transition-all duration-200 font-medium text-sm select-none ";
+      let badgeCls = "flex-shrink-0 w-7 h-7 rounded-xl text-xs font-bold flex items-center justify-center transition ";
+      let statusIcon = "";
+
+      if (isAnswered) {
+        // Question has been answered -> apply GREEN/RED visual feedback
+        if (i === q.correctOptionIndex) {
+          // Actual Correct Answer -> GREEN
+          btnCls += "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200 scale-[1.01]";
+          badgeCls += "bg-white/20 text-white";
+          statusIcon = `<span class="text-xs font-extrabold px-2 py-0.5 bg-white/20 rounded-lg">✓ Correct</span>`;
+        } else if (i === userAns) {
+          // Selected Wrong Answer -> RED
+          btnCls += "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 scale-[1.01]";
+          badgeCls += "bg-white/20 text-white";
+          statusIcon = `<span class="text-xs font-extrabold px-2 py-0.5 bg-white/20 rounded-lg">✗ Wrong</span>`;
+        } else {
+          // Other unselected options -> Muted
+          btnCls += "bg-slate-50/60 border-slate-200 text-slate-400 opacity-60";
+          badgeCls += "bg-slate-200 text-slate-500";
+        }
+      } else {
+        // Not yet answered -> Standard unselected interactive state
+        btnCls += "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/50 hover:shadow-sm";
+        badgeCls += "bg-slate-100 text-slate-500";
+      }
+
       return `
         <button
           data-idx="${i}"
-          class="option-btn w-full flex items-center gap-3 text-left p-4 rounded-xl border-2 transition-all duration-200 font-medium text-sm
-            ${isSelected
-              ? "bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[1.01]"
-              : "bg-white border-gray-200 text-gray-700 hover:border-indigo-400 hover:bg-indigo-50"}"
+          ${isAnswered ? "disabled" : ""}
+          class="${btnCls}"
         >
-          <span class="flex-shrink-0 w-7 h-7 rounded-lg ${isSelected ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"} text-xs font-bold flex items-center justify-center">
-            ${OPTION_LABELS[i]}
-          </span>
-          <span>${escHtml(opt)}</span>
+          <div class="flex items-center gap-3">
+            <span class="${badgeCls}">
+              ${OPTION_LABELS[i]}
+            </span>
+            <span class="font-medium">${escHtml(opt)}</span>
+          </div>
+          ${statusIcon}
         </button>`;
     }).join("");
 
-    optionsGrid.querySelectorAll(".option-btn").forEach(btn => {
-      btn.addEventListener("click", () => selectOption(parseInt(btn.dataset.idx)));
-    });
+    if (!isAnswered) {
+      optionsGrid.querySelectorAll(".option-btn").forEach(btn => {
+        btn.addEventListener("click", () => selectOption(parseInt(btn.dataset.idx)));
+      });
+    }
   }
 
-  // Navigation
+  // Navigation Buttons
   if (prevBtn) prevBtn.disabled = currentQIdx === 0;
   if (nextBtn) {
     nextBtn.classList.toggle("hidden", currentQIdx === total - 1);
   }
   if (submitBtn) {
     const answered = userAnswers.filter(a => a !== null).length;
-    submitBtn.textContent = `Submit Quiz (${answered}/${total} answered)`;
+    submitBtn.textContent = currentQIdx === total - 1 ? `Finish Quiz (${answered}/${total} answered)` : `Submit Quiz (${answered}/${total} answered)`;
   }
 }
 
+// ── Select Option with Instant Feedback & Auto-Next ──────────
 function selectOption(idx) {
+  if (userAnswers[currentQIdx] !== null) return; // Prevent double selections
+
   userAnswers[currentQIdx] = idx;
   renderQuestion();
+
+  // Automatic Next Question after 600ms visual feedback
+  autoAdvanceTimeout = setTimeout(() => {
+    if (currentQIdx < builtQuiz.length - 1) {
+      currentQIdx++;
+      renderQuestion();
+    } else {
+      showResults();
+    }
+  }, 600);
 }
 
-// ── Navigation ────────────────────────────────────────────────
-if (prevBtn) prevBtn.addEventListener("click", () => { if (currentQIdx > 0) { currentQIdx--; renderQuestion(); }});
-if (nextBtn) nextBtn.addEventListener("click", () => { if (currentQIdx < builtQuiz.length - 1) { currentQIdx++; renderQuestion(); }});
+// ── Navigation Buttons ────────────────────────────────────────
+if (prevBtn) {
+  prevBtn.addEventListener("click", () => {
+    if (autoAdvanceTimeout) clearTimeout(autoAdvanceTimeout);
+    if (currentQIdx > 0) {
+      currentQIdx--;
+      renderQuestion();
+    }
+  });
+}
+
+if (nextBtn) {
+  nextBtn.addEventListener("click", () => {
+    if (autoAdvanceTimeout) clearTimeout(autoAdvanceTimeout);
+    if (currentQIdx < builtQuiz.length - 1) {
+      currentQIdx++;
+      renderQuestion();
+    }
+  });
+}
 
 // ── Submit Quiz ───────────────────────────────────────────────
 if (submitBtn) {
   submitBtn.addEventListener("click", () => {
+    if (autoAdvanceTimeout) clearTimeout(autoAdvanceTimeout);
     const answered = userAnswers.filter(a => a !== null).length;
     const unanswered = builtQuiz.length - answered;
 
@@ -309,6 +377,8 @@ if (submitBtn) {
 
 // ── Results ───────────────────────────────────────────────────
 function showResults() {
+  if (autoAdvanceTimeout) clearTimeout(autoAdvanceTimeout);
+
   let correct = 0;
   builtQuiz.forEach((q, i) => {
     if (userAnswers[i] === q.correctOptionIndex) correct++;
@@ -324,7 +394,7 @@ function showResults() {
     courseId
   });
 
-  if (scorePct)  scorePct.textContent  = `${pct}%`;
+  if (scorePct)   scorePct.textContent   = `${pct}%`;
   if (scoreLabel) scoreLabel.textContent = `${correct} / ${builtQuiz.length} correct`;
 
   // Score ring color
@@ -349,20 +419,20 @@ function showResults() {
       const skipped   = ua === null;
 
       const optionsHTML = q.options.map((opt, oi) => {
-        let cls = "flex items-start gap-2 p-2.5 rounded-lg text-sm border ";
+        let cls = "flex items-start gap-2 p-2.5 rounded-xl text-sm border ";
         if (oi === q.correctOptionIndex) {
-          cls += "bg-emerald-50 border-emerald-300 text-emerald-800";
+          cls += "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold";
         } else if (oi === ua && !isCorrect) {
-          cls += "bg-red-50 border-red-300 text-red-800";
+          cls += "bg-red-50 border-red-300 text-red-800 font-bold";
         } else {
           cls += "bg-gray-50 border-gray-200 text-gray-600";
         }
 
         let icon = "";
-        if (oi === q.correctOptionIndex) icon = `<svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+        if (oi === q.correctOptionIndex) icon = `<svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
         if (oi === ua && !isCorrect) icon = `<svg class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>`;
 
-        return `<div class="${cls}">${icon}<span class="font-semibold mr-1">${OPTION_LABELS[oi]})</span>${escHtml(opt)}</div>`;
+        return `<div class="${cls}">${icon}<span class="font-bold mr-1">${OPTION_LABELS[oi]})</span>${escHtml(opt)}</div>`;
       }).join("");
 
       const statusBadge = isCorrect

@@ -106,6 +106,7 @@ export function subscribeToLivePresence(callback) {
 // ── Track Page View & Peak Hours Distribution ────────────────
 export async function trackPageView() {
   try {
+    await ensureAuth();
     const today = getTodayStr();
     const hourKey = getHourKey();
     const dailyRef = doc(DAILY_COLLECTION, today);
@@ -136,6 +137,7 @@ export async function trackPageView() {
 // ── Track Quiz Start / Attempt ────────────────────────────────
 export async function incrementQuizAttempts() {
   try {
+    await ensureAuth();
     const today = getTodayStr();
     const hourKey = getHourKey();
     const dailyRef = doc(DAILY_COLLECTION, today);
@@ -166,6 +168,7 @@ export async function incrementQuizAttempts() {
 // ── Track Quiz Completion & Score Stats ───────────────────────
 export async function trackQuizCompletion({ scorePct, scoreCount, totalQuestions, courseId, weekId }) {
   try {
+    await ensureAuth();
     const today = getTodayStr();
     const dailyRef = doc(DAILY_COLLECTION, today);
 
@@ -192,6 +195,7 @@ export async function trackQuizCompletion({ scorePct, scoreCount, totalQuestions
 // ── Track Social Shares ───────────────────────────────────────
 export async function trackShare(shareType = "general") {
   try {
+    await ensureAuth();
     const today = getTodayStr();
     const dailyRef = doc(DAILY_COLLECTION, today);
 
@@ -335,12 +339,33 @@ export function subscribeToAnalytics(callback) {
 }
 
 // ── Fetch Daily Analytics for Charts ──────────────────────────
-export async function fetchDailyAnalytics(days = 30) {
+export async function fetchDailyAnalytics(days = 14) {
   try {
+    await ensureAuth();
     const q = query(DAILY_COLLECTION, orderBy("date", "desc"), limit(days));
     const snap = await getDocs(q);
-    const results = snap.docs.map(d => d.data());
-    return results.reverse();
+    const docsMap = {};
+    snap.docs.forEach(d => {
+      docsMap[d.id] = d.data();
+    });
+
+    const results = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const existing = docsMap[dateStr] || {};
+      results.push({
+        date: dateStr,
+        pageViews: existing.pageViews || 0,
+        uniqueVisitors: existing.uniqueVisitors || 0,
+        quizAttempts: existing.quizAttempts || 0,
+        quizAttendees: existing.quizAttendees || 0,
+        completedQuizzes: existing.completedQuizzes || 0,
+        hourlyViews: existing.hourlyViews || {}
+      });
+    }
+    return results;
   } catch (err) {
     console.warn("Failed to fetch daily analytics:", err.message);
     return [];
