@@ -70,25 +70,32 @@ function injectDarkThemeStyles() {
       background-color: #0f172a !important;
       color: #f8fafc !important;
     }
-    html.dark .bg-white {
+    html.dark .bg-white,
+    html.dark div[class*="bg-white"],
+    html.dark section[class*="bg-white"] {
       background-color: #1e293b !important;
       color: #f8fafc !important;
     }
-    html.dark .bg-slate-50, html.dark .bg-slate-50\\/80, html.dark .bg-slate-50\\/60, html.dark .bg-slate-50\\/50, html.dark .bg-slate-50\\/40 {
+    html.dark .bg-slate-50, 
+    html.dark div[class*="bg-slate-50"] {
       background-color: #0f172a !important;
       color: #f8fafc !important;
     }
-    html.dark .bg-slate-100 {
+    html.dark .bg-slate-100,
+    html.dark div[class*="bg-slate-100"] {
       background-color: #334155 !important;
       color: #f8fafc !important;
     }
-    html.dark .text-slate-900, html.dark .text-slate-800, html.dark .text-slate-700, html.dark .text-gray-800, html.dark .text-gray-700 {
+    html.dark .text-slate-900, html.dark .text-slate-800, html.dark .text-slate-700, 
+    html.dark .text-gray-900, html.dark .text-gray-800, html.dark .text-gray-700,
+    html.dark p, html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark label {
       color: #f8fafc !important;
     }
-    html.dark .text-slate-600, html.dark .text-slate-500, html.dark .text-slate-400, html.dark .text-gray-600, html.dark .text-gray-500 {
+    html.dark .text-slate-600, html.dark .text-slate-500, html.dark .text-slate-400, 
+    html.dark .text-gray-600, html.dark .text-gray-500 {
       color: #cbd5e1 !important;
     }
-    html.dark .border-slate-200, html.dark .border-slate-100, html.dark .border-slate-200\\/80, html.dark .border-gray-200, html.dark .border-gray-100 {
+    html.dark .border-slate-200, html.dark .border-slate-100, html.dark .border-gray-200, html.dark .border-gray-100 {
       border-color: #334155 !important;
     }
     html.dark select, html.dark input[type="text"], html.dark input[type="email"], html.dark input[type="password"], html.dark textarea {
@@ -97,30 +104,64 @@ function injectDarkThemeStyles() {
       border-color: #475569 !important;
     }
     html.dark header {
-      background-color: rgba(15, 23, 42, 0.9) !important;
+      background-color: rgba(15, 23, 42, 0.95) !important;
       border-color: #1e293b !important;
     }
-    html.dark .study-card, html.dark .week-pill-card, html.dark .mode-pill-card {
+    html.dark .study-card, html.dark .week-pill-card, html.dark .mode-pill-card, html.dark .quiz-card {
       background-color: #1e293b !important;
       border-color: #334155 !important;
+      color: #f8fafc !important;
     }
     html.dark .week-pill-card.border-indigo-600, html.dark .mode-pill-card.border-indigo-600 {
-      background-color: rgba(99, 102, 241, 0.2) !important;
+      background-color: rgba(99, 102, 241, 0.25) !important;
       border-color: #6366f1 !important;
     }
-    html.dark table thead th {
-      background-color: #0f172a !important;
-      color: #94a3b8 !important;
-      border-color: #334155 !important;
-    }
-    html.dark tr.border-b {
-      border-color: #334155 !important;
-    }
-    html.dark tr:hover {
+    /* Options & Choice Badges in Dark Mode */
+    html.dark div[class*="bg-gray-50"],
+    html.dark button[class*="bg-gray-50"],
+    html.dark .bg-gray-50 {
       background-color: #334155 !important;
+      border-color: #475569 !important;
+      color: #f8fafc !important;
     }
+    html.dark div[class*="bg-gray-50"] span,
+    html.dark button[class*="bg-gray-50"] span,
+    html.dark .bg-gray-50 span {
+      color: #f8fafc !important;
+    }
+    html.dark div[class*="bg-emerald-50"],
+    html.dark button[class*="bg-emerald-50"],
+    html.dark .bg-emerald-50 {
+      background-color: rgba(6, 78, 59, 0.85) !important;
+      border-color: #10b981 !important;
+      color: #ecfdf5 !important;
+    }
+    html.dark div[class*="bg-emerald-50"] span,
+    html.dark button[class*="bg-emerald-50"] span,
+    html.dark .bg-emerald-50 span {
+      color: #ecfdf5 !important;
+    }
+    html.dark div[class*="bg-red-50"],
+    html.dark button[class*="bg-red-50"],
+    html.dark .bg-red-50 {
+      background-color: rgba(153, 27, 27, 0.85) !important;
+      border-color: #ef4444 !important;
+      color: #fef2f2 !important;
+    }
+    html.dark div[class*="bg-red-50"] span,
+    html.dark button[class*="bg-red-50"] span,
+    html.dark .bg-red-50 span {
+      color: #fef2f2 !important;
+    }
+    html.dark div[class*="bg-gray-200"],
+    html.dark span[class*="bg-gray-200"],
+    html.dark .bg-gray-200 {
+      background-color: #475569 !important;
+      color: #f8fafc !important;
+    }
+    /* Explanations Accordion */
     html.dark .expl-details {
-      background-color: rgba(30, 41, 59, 0.9) !important;
+      background-color: rgba(30, 41, 59, 0.95) !important;
       border-color: #334155 !important;
     }
     html.dark .expl-details summary {
@@ -134,34 +175,31 @@ function injectDarkThemeStyles() {
       border-color: #334155 !important;
       color: #cbd5e1 !important;
     }
-    /* Options & Badges in Dark Mode */
-    html.dark .bg-gray-50 {
+    /* Quiz Panels & Results */
+    html.dark #results-panel,
+    html.dark #results-panel div[class*="bg-white"],
+    html.dark #setup-panel div[class*="bg-white"],
+    html.dark #quiz-panel div[class*="bg-white"] {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+      color: #f8fafc !important;
+    }
+    html.dark #results-panel p,
+    html.dark #results-panel h2,
+    html.dark #results-panel h3,
+    html.dark #results-panel span {
+      color: #f8fafc !important;
+    }
+    html.dark table thead th {
+      background-color: #0f172a !important;
+      color: #94a3b8 !important;
+      border-color: #334155 !important;
+    }
+    html.dark tr.border-b {
+      border-color: #334155 !important;
+    }
+    html.dark tr:hover {
       background-color: #334155 !important;
-      border-color: #475569 !important;
-      color: #f8fafc !important;
-    }
-    html.dark .bg-gray-50 .text-gray-700, html.dark .bg-gray-50 span {
-      color: #f8fafc !important;
-    }
-    html.dark .bg-emerald-50 {
-      background-color: rgba(6, 78, 59, 0.7) !important;
-      border-color: #10b981 !important;
-      color: #ecfdf5 !important;
-    }
-    html.dark .bg-emerald-50 .text-gray-700, html.dark .bg-emerald-50 span {
-      color: #ecfdf5 !important;
-    }
-    html.dark .bg-red-50 {
-      background-color: rgba(153, 27, 27, 0.7) !important;
-      border-color: #ef4444 !important;
-      color: #fef2f2 !important;
-    }
-    html.dark .bg-red-50 .text-gray-700, html.dark .bg-red-50 span {
-      color: #fef2f2 !important;
-    }
-    html.dark .bg-gray-200 {
-      background-color: #475569 !important;
-      color: #cbd5e1 !important;
     }
   `;
   document.head.appendChild(styleEl);
