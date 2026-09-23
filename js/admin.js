@@ -208,9 +208,11 @@ tabBtns.forEach(btn => {
     });
 
     if (target === "analytics") {
-      if (viewsChart) viewsChart.resize();
-      if (peakHoursChart) peakHoursChart.resize();
-      if (visitorsChart) visitorsChart.resize();
+      setTimeout(() => {
+        if (viewsChart) { viewsChart.resize(); viewsChart.update(); }
+        if (peakHoursChart) { peakHoursChart.resize(); peakHoursChart.update(); }
+        if (visitorsChart) { visitorsChart.resize(); visitorsChart.update(); }
+      }, 50);
     }
   });
 });
