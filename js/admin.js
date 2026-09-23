@@ -206,6 +206,12 @@ tabBtns.forEach(btn => {
     tabContents.forEach(content => {
       content.classList.toggle("hidden", content.dataset.tabContent !== target);
     });
+
+    if (target === "analytics") {
+      if (viewsChart) viewsChart.resize();
+      if (peakHoursChart) peakHoursChart.resize();
+      if (visitorsChart) visitorsChart.resize();
+    }
   });
 });
 

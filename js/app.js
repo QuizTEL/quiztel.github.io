@@ -226,17 +226,19 @@ export function subscribeToCourses(callback) {
 /** Fetch all weeks for a course → [{ id, name }] */
 export async function loadWeeks(courseId) {
   const ref  = collection(db, "courses", courseId, "weeks");
-  const snap = await getDocs(query(ref, orderBy("name")));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const snap = await getDocs(query(ref));
+  const weeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return weeks.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 /** Real-time Subscribe to weeks of a course */
 export function subscribeToWeeks(courseId, callback) {
   if (!courseId) return () => {};
   const ref = collection(db, "courses", courseId, "weeks");
-  const q = query(ref, orderBy("name"));
+  const q = query(ref);
   return onSnapshot(q, (snap) => {
     const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
     callback(list);
   }, (err) => {
     console.warn("Real-time weeks error:", err);
