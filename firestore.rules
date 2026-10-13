@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Analytics traffic & global counters — public read & write
+    match /analytics/{doc} {
+      allow read, write: if true;
+    }
+
+    // Daily analytics time-series collections for admin charts
+    match /analytics_daily/{doc} {
+      allow read, write: if true;
+    }
+
+    // Real-time presence heartbeat documents
+    match /analytics_presence/{doc} {
+      allow read, write: if true;
+    }
+
+    // User feedbacks collection — public submission, read/update/delete by admin
+    match /feedbacks/{doc} {
+      allow create: if true;
+      allow read, update, delete: if true;
+    }
+
+    // User suggested questions collection — public contribution, review & approval by admin
+    match /suggested_questions/{doc} {
+      allow create: if true;
+      allow read, update, delete: if true;
+    }
+
+    // Courses, weeks, and quiz questions hierarchy
+    // Public read for students, authenticated admin write for CRUD
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+
+      match /weeks/{weekId} {
+        allow read: if true;
+        allow write: if request.auth != null;
+
+        match /questions/{questionId} {
+          allow read: if true;
+          allow write: if request.auth != null;
+        }
+
+        match /resources/{resourceId} {
+          allow read: if true;
+          allow write: if request.auth != null;
+        }
+      }
+    }
+  }
+}

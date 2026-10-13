@@ -87,9 +87,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Analytics collection — public counter access
+    // Analytics collections — public access for counter updates, presence & daily stats
     match /analytics/{doc} {
       allow read, write: if true;
+    }
+
+    match /analytics_daily/{doc} {
+      allow read, write: if true;
+    }
+
+    match /analytics_presence/{doc} {
+      allow read, write: if true;
+    }
+
+    // User Feedbacks collection — public submission & admin management
+    match /feedbacks/{doc} {
+      allow create: if true;
+      allow read, update, delete: if true;
+    }
+
+    // User Suggested Questions collection — public contribution & admin approval
+    match /suggested_questions/{doc} {
+      allow create: if true;
+      allow read, update, delete: if true;
     }
 
     // Courses collection hierarchy — public read, authenticated admin write
@@ -102,6 +122,11 @@ service cloud.firestore {
         allow write: if request.auth != null;
 
         match /questions/{questionId} {
+          allow read: if true;
+          allow write: if request.auth != null;
+        }
+
+        match /resources/{resourceId} {
           allow read: if true;
           allow write: if request.auth != null;
         }
