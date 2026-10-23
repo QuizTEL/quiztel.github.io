@@ -7,7 +7,7 @@ import {
   loadCourses, loadWeeks, loadQuestions,
   populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal, initTheme,
   subscribeToCourses, subscribeToWeeks
-} from "./app.js?v=20261023_6";
+} from "./app.js?v=20261023_7";
 import { trackPageView, incrementQuizAttempts, initPresence, trackQuizCompletion, trackShare } from "./analytics.js";
 
 // ── DOM References ────────────────────────────────────────────

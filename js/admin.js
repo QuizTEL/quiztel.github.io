@@ -18,8 +18,8 @@ import {
 
 import { 
   loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt, initTheme,
-  subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources, ensureTwelveWeeks
-} from "./app.js?v=20261023_6";
+  subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources, ensureTwelveWeeks, getWeekSortOrder, sortWeeks
+} from "./app.js?v=20261023_7";
 import { 
   subscribeToAnalytics, 
   subscribeToLivePresence, 
@@ -957,6 +957,14 @@ function refreshAdminWeeks() {
 
   // Real-time subscribe to weeks filtered by currentAdminPaperType
   unsubWeeks = subscribeToWeeks(cid, (weeks) => {
+    // Auto-heal any weeks that have invalid timestamps or wrong order fields in Firestore
+    weeks.forEach(w => {
+      const expectedOrder = getWeekSortOrder(w);
+      if (expectedOrder < 999 && w.order !== expectedOrder) {
+        updateDoc(doc(db, "courses", cid, "weeks", w.id), { order: expectedOrder }).catch(() => {});
+      }
+    });
+
     const curWeekVal = weekSelect.value;
     populateSelect(weekSelect, weeks, `— Select ${modeTitle} Week —`);
     if (curWeekVal && weeks.some(w => w.id === curWeekVal)) {
@@ -1182,10 +1190,12 @@ addWeekForm.addEventListener("submit", async (e) => {
   const modeLabel = currentAdminPaperType === "pyq" ? "PYQ" : "Current Year";
   showSpinner(`Adding ${modeLabel} Week...`);
   try {
+    const match = name.match(/(?:week|wk|w)[\s_-]*(\d+)/i);
+    const parsedOrder = match ? parseInt(match[1], 10) : 999;
     await addDoc(collection(db, "courses", cid, "weeks"), {
       name,
       paperType: currentAdminPaperType,
-      order: Date.now()
+      order: parsedOrder
     });
     showToast(`"${name}" added to ${modeLabel}!`, "success");
     newWeekName.value = "";
@@ -1451,6 +1461,14 @@ function refreshImportWeeks() {
   if (!cid) return;
 
   unsubImportWeeks = subscribeToWeeks(cid, (weeks) => {
+    // Auto-heal any weeks that have invalid timestamps or wrong order fields in Firestore
+    weeks.forEach(w => {
+      const expectedOrder = getWeekSortOrder(w);
+      if (expectedOrder < 999 && w.order !== expectedOrder) {
+        updateDoc(doc(db, "courses", cid, "weeks", w.id), { order: expectedOrder }).catch(() => {});
+      }
+    });
+
     const cur = importWeekSelect.value;
     populateSelect(importWeekSelect, weeks, `— Select ${pType === "pyq" ? "PYQ" : "Current Year"} Week —`);
     if (cur && weeks.some(w => w.id === cur)) importWeekSelect.value = cur;

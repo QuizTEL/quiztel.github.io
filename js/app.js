@@ -12,7 +12,8 @@ import {
   orderBy,
   query,
   onSnapshot,
-  addDoc
+  addDoc,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── Dark / Light Theme Manager ───────────────────────────────
@@ -226,6 +227,49 @@ export function subscribeToCourses(callback) {
   });
 }
 
+/** Extract a numeric sort key for a week (e.g. "Week 1" -> 1, "Week 12" -> 12) */
+export function getWeekSortOrder(w) {
+  if (!w) return 999999;
+
+  // 1. Check if name contains explicit week number e.g. "Week 1", "Week 12 (PYQ)", "W3"
+  const name = String(w.name || "").trim();
+  const weekMatch = name.match(/(?:week|wk|w)[\s_-]*(\d+)/i);
+  if (weekMatch) {
+    return parseInt(weekMatch[1], 10);
+  }
+
+  // 2. If name has any standalone number e.g. "Assignment 4", "1"
+  const anyNumMatch = name.match(/\b(\d+)\b/);
+  if (anyNumMatch) {
+    return parseInt(anyNumMatch[1], 10);
+  }
+
+  // 3. If explicit order was set and is a reasonable sequence number (not a large timestamp)
+  if (w.order !== undefined && w.order !== null && !isNaN(Number(w.order))) {
+    const ord = Number(w.order);
+    if (ord >= 0 && ord < 100000) {
+      return ord;
+    }
+  }
+
+  return 999999;
+}
+
+/** Robustly sort weeks in strict ascending numerical order (Week 1, Week 2, ... Week 12) */
+export function sortWeeks(weeks) {
+  if (!Array.isArray(weeks)) return [];
+  return [...weeks].sort((a, b) => {
+    const orderA = getWeekSortOrder(a);
+    const orderB = getWeekSortOrder(b);
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    return String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
 /** Fetch all weeks for a course → [{ id, name, paperType, order }] */
 export async function loadWeeks(courseId, paperType = "all") {
   const ref  = collection(db, "courses", courseId, "weeks");
@@ -244,12 +288,7 @@ export async function loadWeeks(courseId, paperType = "all") {
     });
   }
 
-  return weeks.sort((a, b) => {
-    if (a.order !== undefined && b.order !== undefined) {
-      return a.order - b.order;
-    }
-    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-  });
+  return sortWeeks(weeks);
 }
 
 /** Real-time Subscribe to weeks of a course */
@@ -272,13 +311,7 @@ export function subscribeToWeeks(courseId, callback, paperType = "all") {
       });
     }
 
-    list.sort((a, b) => {
-      if (a.order !== undefined && b.order !== undefined) {
-        return a.order - b.order;
-      }
-      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-    });
-    callback(list);
+    callback(sortWeeks(list));
   }, (err) => {
     console.warn("Real-time weeks error:", err);
   });
@@ -443,7 +476,7 @@ export async function ensureTwelveWeeks(courseId, paperType = "current") {
 
   for (let i = 1; i <= 12; i++) {
     const weekLabel = `Week ${i}`;
-    const exists = existingWeeks.some(w => {
+    const foundWeek = existingWeeks.find(w => {
       const n = (w.name || "").trim().toLowerCase();
       return n === weekLabel.toLowerCase() ||
              n.startsWith(`week ${i}:`) ||
@@ -452,10 +485,15 @@ export async function ensureTwelveWeeks(courseId, paperType = "current") {
              n === `week${i}`;
     });
 
-    if (!exists) {
+    if (!foundWeek) {
       const ref = collection(db, "courses", courseId, "weeks");
       const docRef = await addDoc(ref, { name: weekLabel, paperType, order: i });
-      created.push({ id: docRef.id, name: weekLabel, paperType });
+      created.push({ id: docRef.id, name: weekLabel, paperType, order: i });
+    } else if (foundWeek.order !== i) {
+      // Auto-repair order in Firestore so database field is cleanly 1..12
+      try {
+        await updateDoc(doc(db, "courses", courseId, "weeks", foundWeek.id), { order: i });
+      } catch (_) {}
     }
   }
 
