@@ -7,6 +7,8 @@ import { db } from "./firebase-config.js";
 import {
   collection,
   getDocs,
+  doc,
+  getDoc,
   orderBy,
   query,
   onSnapshot,
@@ -231,9 +233,15 @@ export async function loadWeeks(courseId, paperType = "all") {
   let weeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   if (paperType === "current") {
-    weeks = weeks.filter(w => !w.paperType || w.paperType === "current");
+    weeks = weeks.filter(w => {
+      const pt = (w.paperType || w.type || "").toLowerCase().trim();
+      return (!pt || pt === "current") && !w.isPYQ && !(w.name && w.name.toLowerCase().includes("(pyq)"));
+    });
   } else if (paperType === "pyq") {
-    weeks = weeks.filter(w => w.paperType === "pyq");
+    weeks = weeks.filter(w => {
+      const pt = (w.paperType || w.type || "").toLowerCase().trim();
+      return pt === "pyq" || w.isPYQ === true || (w.name && w.name.toLowerCase().includes("(pyq)"));
+    });
   }
 
   return weeks.sort((a, b) => {
@@ -253,9 +261,15 @@ export function subscribeToWeeks(courseId, callback, paperType = "all") {
     let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     if (paperType === "current") {
-      list = list.filter(w => !w.paperType || w.paperType === "current");
+      list = list.filter(w => {
+        const pt = (w.paperType || w.type || "").toLowerCase().trim();
+        return (!pt || pt === "current") && !w.isPYQ && !(w.name && w.name.toLowerCase().includes("(pyq)"));
+      });
     } else if (paperType === "pyq") {
-      list = list.filter(w => w.paperType === "pyq");
+      list = list.filter(w => {
+        const pt = (w.paperType || w.type || "").toLowerCase().trim();
+        return pt === "pyq" || w.isPYQ === true || (w.name && w.name.toLowerCase().includes("(pyq)"));
+      });
     }
 
     list.sort((a, b) => {
@@ -272,6 +286,19 @@ export function subscribeToWeeks(courseId, callback, paperType = "all") {
 
 /** Fetch all questions for a week → [{ id, text, options, correctOptionIndex, explanation, order, questionType }] */
 export async function loadQuestions(courseId, weekId, paperType = "all") {
+  // Check if week document itself has a designated paperType
+  let isPyqWeek = false;
+  try {
+    const weekDocSnap = await getDoc(doc(db, "courses", courseId, "weeks", weekId));
+    if (weekDocSnap.exists()) {
+      const wd = weekDocSnap.data();
+      const pt = (wd.paperType || wd.type || "").toLowerCase().trim();
+      if (pt === "pyq" || wd.isPYQ === true || (wd.name && wd.name.toLowerCase().includes("(pyq)"))) {
+        isPyqWeek = true;
+      }
+    }
+  } catch (_) {}
+
   const ref  = collection(db, "courses", courseId, "weeks", weekId, "questions");
   const snap = await getDocs(ref);
   let questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -283,7 +310,6 @@ export async function loadQuestions(courseId, weekId, paperType = "all") {
       const pyqSnap = await getDocs(pyqRef);
       if (!pyqSnap.empty) {
         const extraPyqs = pyqSnap.docs.map(d => ({ id: d.id, questionType: "pyq", isPYQ: true, ...d.data() }));
-        // Only add those whose id is not already in questions
         extraPyqs.forEach(eq => {
           if (!questions.some(q => q.id === eq.id)) {
             questions.push(eq);
@@ -295,9 +321,23 @@ export async function loadQuestions(courseId, weekId, paperType = "all") {
 
   // Filter based on paperType
   if (paperType === "current") {
-    questions = questions.filter(q => (!q.questionType || q.questionType === "current") && !q.isPYQ);
+    if (isPyqWeek) {
+      return []; // A PYQ week contains 0 current questions
+    }
+    questions = questions.filter(q => {
+      const qt = (q.questionType || "").toLowerCase().trim();
+      return (!qt || qt === "current") && !q.isPYQ;
+    });
   } else if (paperType === "pyq") {
-    questions = questions.filter(q => q.questionType === "pyq" || q.isPYQ === true);
+    if (isPyqWeek) {
+      // In a dedicated PYQ week, all questions belong to PYQ unless explicitly marked current
+      questions = questions.filter(q => (q.questionType || "").toLowerCase().trim() !== "current");
+    } else {
+      questions = questions.filter(q => {
+        const qt = (q.questionType || "").toLowerCase().trim();
+        return qt === "pyq" || q.isPYQ === true;
+      });
+    }
   }
 
   return questions.sort((a, b) => {
@@ -312,13 +352,40 @@ export async function loadQuestions(courseId, weekId, paperType = "all") {
 export function subscribeToQuestions(courseId, weekId, callback, paperType = "all") {
   if (!courseId || !weekId) return () => {};
   const ref = collection(db, "courses", courseId, "weeks", weekId, "questions");
-  return onSnapshot(ref, (snap) => {
+  return onSnapshot(ref, async (snap) => {
     let questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+    // Check if week document itself has a designated paperType
+    let isPyqWeek = false;
+    try {
+      const weekDocSnap = await getDoc(doc(db, "courses", courseId, "weeks", weekId));
+      if (weekDocSnap.exists()) {
+        const wd = weekDocSnap.data();
+        const pt = (wd.paperType || wd.type || "").toLowerCase().trim();
+        if (pt === "pyq" || wd.isPYQ === true || (wd.name && wd.name.toLowerCase().includes("(pyq)"))) {
+          isPyqWeek = true;
+        }
+      }
+    } catch (_) {}
+
     if (paperType === "current") {
-      questions = questions.filter(q => (!q.questionType || q.questionType === "current") && !q.isPYQ);
+      if (isPyqWeek) {
+        callback([]);
+        return;
+      }
+      questions = questions.filter(q => {
+        const qt = (q.questionType || "").toLowerCase().trim();
+        return (!qt || qt === "current") && !q.isPYQ;
+      });
     } else if (paperType === "pyq") {
-      questions = questions.filter(q => q.questionType === "pyq" || q.isPYQ === true);
+      if (isPyqWeek) {
+        questions = questions.filter(q => (q.questionType || "").toLowerCase().trim() !== "current");
+      } else {
+        questions = questions.filter(q => {
+          const qt = (q.questionType || "").toLowerCase().trim();
+          return qt === "pyq" || q.isPYQ === true;
+        });
+      }
     }
 
     questions.sort((a, b) => {

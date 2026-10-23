@@ -6,7 +6,7 @@
 import { 
   loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, initFeedbackModal, initTheme,
   subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources
-} from "./app.js";
+} from "./app.js?v=20261023_6";
 import { trackPageView, initPresence } from "./analytics.js";
 
 const courseSelect        = document.getElementById("course-select");

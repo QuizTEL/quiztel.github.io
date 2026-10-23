@@ -19,7 +19,7 @@ import {
 import { 
   loadCourses, loadWeeks, loadQuestions, loadResources, populateSelect, showToast, showSpinner, hideSpinner, fmt, initTheme,
   subscribeToCourses, subscribeToWeeks, subscribeToQuestions, subscribeToResources, ensureTwelveWeeks
-} from "./app.js";
+} from "./app.js?v=20261023_6";
 import { 
   subscribeToAnalytics, 
   subscribeToLivePresence, 

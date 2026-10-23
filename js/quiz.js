@@ -7,7 +7,7 @@ import {
   loadCourses, loadWeeks, loadQuestions,
   populateSelect, showToast, showSpinner, hideSpinner, shuffleArray, initFeedbackModal, initTheme,
   subscribeToCourses, subscribeToWeeks
-} from "./app.js";
+} from "./app.js?v=20261023_6";
 import { trackPageView, incrementQuizAttempts, initPresence, trackQuizCompletion, trackShare } from "./analytics.js";
 
 // ── DOM References ────────────────────────────────────────────
@@ -67,12 +67,16 @@ function init() {
   const targetCourseId = urlParams.get("course");
   const targetType = urlParams.get("type"); // optional preset type
 
+  let initialCourseLoaded = false;
   unsubQuizCourses = subscribeToCourses((courses) => {
     const curVal = courseSelect.value || (targetCourseId && courses.some(c => c.id === targetCourseId) ? targetCourseId : "");
     populateSelect(courseSelect, courses, "— Choose NPTEL Course —");
-    if (curVal) {
+    if (curVal && courses.some(c => c.id === curVal)) {
       courseSelect.value = curVal;
-      onCourseSelected(curVal, targetType);
+      if (!initialCourseLoaded) {
+        initialCourseLoaded = true;
+        onCourseSelected(curVal, targetType);
+      }
     }
   });
 
@@ -187,7 +191,13 @@ function setQuizPaperType(type) {
         renderWeekPills(allWeeks);
         if (toggleAllBtn) toggleAllBtn.disabled = false;
       } else {
-        weekContainer.innerHTML = `<p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">No ${type === "pyq" ? "PYQ" : "Current Year"} weeks found for this course.</p>`;
+        const modeTitle = type === "pyq" ? "Previous Year Questions (PYQ)" : "Current Year";
+        weekContainer.innerHTML = `
+          <div class="col-span-full text-center py-6 px-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <p class="text-sm font-bold text-slate-800 dark:text-slate-200">No ${modeTitle} weeks found for this course.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Admin has not added ${type === "pyq" ? "PYQs" : "Current Year assignments"} for this course yet.</p>
+          </div>
+        `;
         if (toggleAllBtn) toggleAllBtn.disabled = true;
       }
       validateStart();
@@ -223,10 +233,18 @@ function updateQuizPaperTypeUI(type) {
 
 // ── 3. Week Pills Rendering & Selection ───────────────────────
 function renderWeekPills(weeks) {
+  const isPyq = selectedQuizPaperType === "pyq";
+  const icon = isPyq ? "📙" : "📘";
+  const tagColor = isPyq ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300";
+
   weekContainer.innerHTML = weeks.map(w => `
     <label class="week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none">
       <input type="checkbox" name="week" value="${w.id}" class="week-chk sr-only">
-      <span class="week-title text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">${escHtml(w.name)}</span>
+      <div class="flex items-center gap-2">
+        <span class="text-xs">${icon}</span>
+        <span class="week-title text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">${escHtml(w.name)}</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded font-extrabold ${tagColor}">${isPyq ? "PYQ" : "Current"}</span>
+      </div>
       <span class="week-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
     </label>
   `).join("");
@@ -238,7 +256,7 @@ function renderWeekPills(weeks) {
     });
   });
 
-  // Auto-check first week if only 1 week or navigated with intent
+  // Auto-check first week
   const firstChk = weekContainer.querySelector("input[type='checkbox']");
   if (firstChk) firstChk.checked = true;
 
