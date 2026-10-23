@@ -9,7 +9,8 @@ import {
   getDocs,
   orderBy,
   query,
-  onSnapshot
+  onSnapshot,
+  addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── Dark / Light Theme Manager ───────────────────────────────
@@ -245,11 +246,36 @@ export function subscribeToWeeks(courseId, callback) {
   });
 }
 
-/** Fetch all questions for a week → [{ id, text, options, correctOptionIndex, explanation, order }] */
-export async function loadQuestions(courseId, weekId) {
+/** Fetch all questions for a week → [{ id, text, options, correctOptionIndex, explanation, order, questionType }] */
+export async function loadQuestions(courseId, weekId, paperType = "all") {
   const ref  = collection(db, "courses", courseId, "weeks", weekId, "questions");
   const snap = await getDocs(ref);
-  const questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  let questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Fallback check for separate pyq_questions subcollection if PYQ or all requested
+  if (paperType === "pyq" || paperType === "all") {
+    try {
+      const pyqRef = collection(db, "courses", courseId, "weeks", weekId, "pyq_questions");
+      const pyqSnap = await getDocs(pyqRef);
+      if (!pyqSnap.empty) {
+        const extraPyqs = pyqSnap.docs.map(d => ({ id: d.id, questionType: "pyq", isPYQ: true, ...d.data() }));
+        // Only add those whose id is not already in questions
+        extraPyqs.forEach(eq => {
+          if (!questions.some(q => q.id === eq.id)) {
+            questions.push(eq);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  // Filter based on paperType
+  if (paperType === "current") {
+    questions = questions.filter(q => (!q.questionType || q.questionType === "current") && !q.isPYQ);
+  } else if (paperType === "pyq") {
+    questions = questions.filter(q => q.questionType === "pyq" || q.isPYQ === true);
+  }
+
   return questions.sort((a, b) => {
     if (a.order !== undefined && b.order !== undefined) {
       return a.order - b.order;
@@ -259,11 +285,18 @@ export async function loadQuestions(courseId, weekId) {
 }
 
 /** Real-time Subscribe to questions of a week */
-export function subscribeToQuestions(courseId, weekId, callback) {
+export function subscribeToQuestions(courseId, weekId, callback, paperType = "all") {
   if (!courseId || !weekId) return () => {};
   const ref = collection(db, "courses", courseId, "weeks", weekId, "questions");
   return onSnapshot(ref, (snap) => {
-    const questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (paperType === "current") {
+      questions = questions.filter(q => (!q.questionType || q.questionType === "current") && !q.isPYQ);
+    } else if (paperType === "pyq") {
+      questions = questions.filter(q => q.questionType === "pyq" || q.isPYQ === true);
+    }
+
     questions.sort((a, b) => {
       if (a.order !== undefined && b.order !== undefined) {
         return a.order - b.order;
@@ -301,14 +334,41 @@ export function subscribeToResources(courseId, weekId, callback) {
 }
 
 /** Fetch ALL questions across ALL weeks for a course → [{ ...question, weekId, weekName }] */
-export async function loadAllQuestions(courseId) {
+export async function loadAllQuestions(courseId, paperType = "all") {
   const weeks = await loadWeeks(courseId);
   const result = [];
   for (const week of weeks) {
-    const qs = await loadQuestions(courseId, week.id);
+    const qs = await loadQuestions(courseId, week.id, paperType);
     qs.forEach(q => result.push({ ...q, weekId: week.id, weekName: week.name }));
   }
   return result;
+}
+
+/** Ensure Week 1 through Week 12 exist for a given course */
+export async function ensureTwelveWeeks(courseId) {
+  if (!courseId) return [];
+  const existingWeeks = await loadWeeks(courseId);
+  const created = [];
+
+  for (let i = 1; i <= 12; i++) {
+    const weekLabel = `Week ${i}`;
+    const exists = existingWeeks.some(w => {
+      const n = (w.name || "").trim().toLowerCase();
+      return n === weekLabel.toLowerCase() ||
+             n.startsWith(`week ${i}:`) ||
+             n.startsWith(`week ${i} `) ||
+             n.startsWith(`week ${i}-`) ||
+             n === `week${i}`;
+    });
+
+    if (!exists) {
+      const ref = collection(db, "courses", courseId, "weeks");
+      const docRef = await addDoc(ref, { name: weekLabel, order: i });
+      created.push({ id: docRef.id, name: weekLabel });
+    }
+  }
+
+  return created;
 }
 
 // ── UI Helpers ────────────────────────────────────────────────

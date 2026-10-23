@@ -98,31 +98,79 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Select week coverage and choose your preferred randomization mode.</p>
       </div>
 
-      <!-- Course Selection -->
+      <!-- Step 1: Course Selection -->
       <div class="mb-6">
-        <label for="course-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">1. Select Course</label>
+        <label for="course-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">1</span>
+          Select NPTEL Course
+        </label>
         <select id="course-select" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 font-medium transition">
           <option value="" disabled selected>Loading courses...</option>
         </select>
       </div>
 
-      <!-- Week Selection (Multi-select) -->
+      <!-- Step 2: Paper Type Selection (Current Year vs PYQ) -->
+      <div id="quiz-paper-type-section" class="mb-6">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">2</span>
+          Which question paper would you like to practice?
+        </label>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="quiz-paper-type-cards">
+          <!-- Current Year Option -->
+          <button type="button" id="quiz-paper-current-btn" data-paper-type="current" disabled class="quiz-paper-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 transition-all duration-200 opacity-50 cursor-not-allowed group flex items-start gap-3.5 select-none">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl flex-shrink-0 group-hover:scale-105 transition shadow-sm">
+              📘
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 transition">Current Year</span>
+                <span class="paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Access the regular weekly assignment questions.</p>
+            </div>
+          </button>
+
+          <!-- PYQ Option -->
+          <button type="button" id="quiz-paper-pyq-btn" data-paper-type="pyq" disabled class="quiz-paper-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 transition-all duration-200 opacity-50 cursor-not-allowed group flex items-start gap-3.5 select-none">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl flex-shrink-0 group-hover:scale-105 transition shadow-sm">
+              📙
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 transition">Previous Year Questions (PYQ)</span>
+                <span class="paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Access previous-year questions organized by week.</p>
+            </div>
+          </button>
+        </div>
+        <p id="quiz-paper-hint" class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 italic">Select a course above first to choose paper type.</p>
+      </div>
+
+      <!-- Step 3: Week Selection (Multi-select) -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-3">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">2. Select Week(s)</label>
-          <button type="button" id="toggle-all-weeks-btn" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 transition duration-150 flex items-center gap-1.5 cursor-pointer shadow-sm">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">3</span>
+            Select Week(s) (Week 1 to Week 12)
+          </label>
+          <button type="button" id="toggle-all-weeks-btn" disabled class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 transition duration-150 flex items-center gap-1.5 disabled:opacity-40 cursor-pointer shadow-sm">
             ✨ Select All Weeks
           </button>
         </div>
         
         <div id="week-container" class="bg-slate-50/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 max-h-60 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">Select a course above to view available weeks.</p>
+          <p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">Select a course and question paper type above to choose weeks.</p>
         </div>
       </div>
 
-      <!-- Randomization Modes -->
+      <!-- Step 4: Randomization Modes -->
       <div class="mb-8">
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">3. Randomization Mode</label>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">4</span>
+          Randomization Mode
+        </label>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="mode-cards-container">
           
@@ -179,8 +227,11 @@
       <!-- Progress Bar Header -->
       <div class="mb-6">
         <div class="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-          <span id="q-counter">Question 1 of 10</span>
-          <span class="text-indigo-600">QuizTEL Engine</span>
+          <div class="flex items-center gap-2">
+            <span id="q-counter">Question 1 of 10</span>
+            <span id="quiz-paper-badge" class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider"></span>
+          </div>
+          <span class="text-indigo-600 font-extrabold">QuizTEL Engine</span>
         </div>
         <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
           <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 10%;"></div>

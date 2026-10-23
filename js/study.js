@@ -1,5 +1,6 @@
 // ============================================================
 //  QuizTEL — Study Mode (study.js)
+//  Course → Paper Type (Current/PYQ) → Week → Questions
 // ============================================================
 
 import { 
@@ -8,20 +9,31 @@ import {
 } from "./app.js";
 import { trackPageView, initPresence } from "./analytics.js";
 
-const courseSelect  = document.getElementById("course-select");
-const weekSelect    = document.getElementById("week-select");
-const questionsArea = document.getElementById("questions-area");
-const qCount        = document.getElementById("q-count");
-const emptyState    = document.getElementById("empty-state");
-const resourcesArea = document.getElementById("resources-area");
-const resourcesList = document.getElementById("resources-list");
+const courseSelect        = document.getElementById("course-select");
+const paperTypeSection    = document.getElementById("paper-type-section");
+const paperTypeCurrentBtn = document.getElementById("paper-type-current-btn");
+const paperTypePyqBtn     = document.getElementById("paper-type-pyq-btn");
+const paperTypeHint       = document.getElementById("paper-type-hint");
+const paperTypeBadge      = document.getElementById("paper-type-badge");
+const weekSelect          = document.getElementById("week-select");
+const questionsArea       = document.getElementById("questions-area");
+const qCount              = document.getElementById("q-count");
+const emptyState          = document.getElementById("empty-state");
+const emptyStateTitle     = document.getElementById("empty-state-title");
+const emptyStateDesc      = document.getElementById("empty-state-desc");
+const emptyStateActions   = document.getElementById("empty-state-actions");
+const resourcesArea       = document.getElementById("resources-area");
+const resourcesList       = document.getElementById("resources-list");
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
-let unsubStudyCourses = null;
-let unsubStudyWeeks = null;
+let unsubStudyCourses   = null;
+let unsubStudyWeeks     = null;
 let unsubStudyQuestions = null;
 let unsubStudyResources = null;
+
+let cachedWeeks         = [];
+let selectedPaperType   = null; // "current" | "pyq"
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
@@ -32,62 +44,224 @@ function init() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const targetCourseId = urlParams.get("course");
+  const targetType = urlParams.get("type"); // optional preset type
 
   unsubStudyCourses = subscribeToCourses((courses) => {
     const curVal = courseSelect.value || (targetCourseId && courses.some(c => c.id === targetCourseId) ? targetCourseId : "");
-    populateSelect(courseSelect, courses, "— Select a Course —");
+    populateSelect(courseSelect, courses, "— Select NPTEL Course —");
     if (curVal) {
       courseSelect.value = curVal;
-      courseSelect.dispatchEvent(new Event("change"));
+      onCourseSelected(curVal, targetType);
     }
   });
+
+  // Attach Paper Type card click listeners
+  if (paperTypeCurrentBtn) {
+    paperTypeCurrentBtn.addEventListener("click", () => {
+      if (paperTypeCurrentBtn.disabled) return;
+      setPaperType("current");
+    });
+  }
+
+  if (paperTypePyqBtn) {
+    paperTypePyqBtn.addEventListener("click", () => {
+      if (paperTypePyqBtn.disabled) return;
+      setPaperType("pyq");
+    });
+  }
 }
 
-// ── Course selection → load weeks ─────────────────────────────
+// ── 1. Course Selection ───────────────────────────────────────
 courseSelect.addEventListener("change", () => {
   const cid = courseSelect.value;
+  onCourseSelected(cid);
+});
 
+function onCourseSelected(cid, initialType = null) {
+  // Tear down existing listeners
   if (unsubStudyWeeks) { unsubStudyWeeks(); unsubStudyWeeks = null; }
   if (unsubStudyQuestions) { unsubStudyQuestions(); unsubStudyQuestions = null; }
   if (unsubStudyResources) { unsubStudyResources(); unsubStudyResources = null; }
 
-  weekSelect.innerHTML = `<option value="" disabled selected>— Select a Week —</option>`;
-  weekSelect.disabled = !cid;
+  // Reset UI elements
   questionsArea.innerHTML = "";
-  if (qCount) qCount.textContent = "";
-  if (emptyState) emptyState.classList.remove("hidden");
+  if (qCount) {
+    qCount.textContent = "";
+    qCount.className = "hidden";
+  }
   if (resourcesArea) resourcesArea.classList.add("hidden");
 
-  if (!cid) return;
+  if (!cid) {
+    // Disable Paper Type and Week selectors
+    selectedPaperType = null;
+    updatePaperTypeUI(null);
+    disablePaperTypeControls(true);
+    weekSelect.innerHTML = `<option value="" disabled selected>— Select Course & Paper Type First —</option>`;
+    weekSelect.disabled = true;
+    showEmptyState(
+      "No Questions Displayed",
+      "Select a course, paper type, and week from the controls above to view questions."
+    );
+    return;
+  }
 
+  // Course selected: enable paper type buttons and prompt user
+  disablePaperTypeControls(false);
+
+  // Subscribe to weeks for this course
   unsubStudyWeeks = subscribeToWeeks(cid, (weeks) => {
-    const curWeek = weekSelect.value;
-    populateSelect(weekSelect, weeks, "— Select a Week —");
-    if (curWeek && weeks.some(w => w.id === curWeek)) {
-      weekSelect.value = curWeek;
-      weekSelect.dispatchEvent(new Event("change"));
-    } else if (targetCourseId && weeks.length > 0) {
-      // Auto-select Week 1 when navigating directly from Home page card
-      weekSelect.value = weeks[0].id;
-      weekSelect.dispatchEvent(new Event("change"));
+    cachedWeeks = weeks;
+    if (selectedPaperType) {
+      populateWeekDropdown();
     }
-    weekSelect.disabled = false;
   });
+
+  if (initialType === "pyq" || initialType === "current") {
+    setPaperType(initialType);
+  } else {
+    // Keep week selection disabled until paper type is explicitly chosen
+    selectedPaperType = null;
+    updatePaperTypeUI(null);
+    weekSelect.innerHTML = `<option value="" disabled selected>— Select Paper Type (Current Year or PYQ) —</option>`;
+    weekSelect.disabled = true;
+    showEmptyState(
+      "Which question paper would you like to practice?",
+      "Please choose either 📘 Current Year or 📙 Previous Year Questions (PYQ) above to continue."
+    );
+  }
+}
+
+function disablePaperTypeControls(disabled) {
+  if (paperTypeCurrentBtn) {
+    paperTypeCurrentBtn.disabled = disabled;
+    if (disabled) {
+      paperTypeCurrentBtn.classList.add("opacity-50", "cursor-not-allowed");
+      paperTypeCurrentBtn.classList.remove("cursor-pointer", "hover:border-indigo-400");
+    } else {
+      paperTypeCurrentBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      paperTypeCurrentBtn.classList.add("cursor-pointer");
+    }
+  }
+
+  if (paperTypePyqBtn) {
+    paperTypePyqBtn.disabled = disabled;
+    if (disabled) {
+      paperTypePyqBtn.classList.add("opacity-50", "cursor-not-allowed");
+      paperTypePyqBtn.classList.remove("cursor-pointer", "hover:border-amber-400");
+    } else {
+      paperTypePyqBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      paperTypePyqBtn.classList.add("cursor-pointer");
+    }
+  }
+
+  if (paperTypeHint) {
+    if (disabled) {
+      paperTypeHint.textContent = "Select a course above first to choose question paper type.";
+      paperTypeHint.className = "text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 italic";
+    } else {
+      paperTypeHint.textContent = "Click an option above to load weekly questions.";
+      paperTypeHint.className = "text-[11px] text-indigo-600 dark:text-indigo-400 mt-1.5 font-semibold";
+    }
+  }
+}
+
+// ── 2. Paper Type Selection ───────────────────────────────────
+function setPaperType(type) {
+  selectedPaperType = type;
+  updatePaperTypeUI(type);
+
+  // Enable and populate Week dropdown
+  populateWeekDropdown();
+
+  // If a week is already selected, immediately re-load questions for that week with the new paper type
+  if (weekSelect.value) {
+    loadWeekContent();
+  } else {
+    showEmptyState(
+      `Select a Week for ${type === "pyq" ? "PYQs 📙" : "Current Year 📘"}`,
+      `Choose Week 1 through Week 12 from the dropdown below to view questions.`
+    );
+  }
+}
+
+function updatePaperTypeUI(type) {
+  // Current Year Button Styling
+  if (paperTypeCurrentBtn) {
+    const badge = paperTypeCurrentBtn.querySelector(".paper-badge");
+    if (type === "current") {
+      paperTypeCurrentBtn.className = "paper-type-card text-left p-4 rounded-2xl border-2 border-indigo-600 dark:border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+    } else {
+      paperTypeCurrentBtn.className = "paper-type-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition";
+    }
+  }
+
+  // PYQ Button Styling
+  if (paperTypePyqBtn) {
+    const badge = paperTypePyqBtn.querySelector(".paper-badge");
+    if (type === "pyq") {
+      paperTypePyqBtn.className = "paper-type-card text-left p-4 rounded-2xl border-2 border-amber-500 dark:border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-2 ring-amber-500/20 shadow-md cursor-pointer transition-all duration-200 group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full bg-amber-500 border-2 border-amber-500 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+    } else {
+      paperTypePyqBtn.className = "paper-type-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-amber-400 hover:bg-amber-50/30 transition-all duration-200 cursor-pointer group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition";
+    }
+  }
+
+  // Top Badge
+  if (paperTypeBadge) {
+    if (type === "pyq") {
+      paperTypeBadge.textContent = "📙 Previous Year Questions (PYQ)";
+      paperTypeBadge.className = "inline-flex items-center px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold";
+    } else if (type === "current") {
+      paperTypeBadge.textContent = "📘 Current Year Assignment";
+      paperTypeBadge.className = "inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold";
+    } else {
+      paperTypeBadge.className = "hidden";
+    }
+  }
+}
+
+// ── 3. Week Selection ─────────────────────────────────────────
+function populateWeekDropdown() {
+  const currentVal = weekSelect.value;
+  weekSelect.innerHTML = `<option value="" disabled selected>— Select Week (Week 1 to Week 12) —</option>`;
+
+  if (cachedWeeks.length === 0) {
+    weekSelect.disabled = true;
+    return;
+  }
+
+  cachedWeeks.forEach(w => {
+    const opt = document.createElement("option");
+    opt.value = w.id;
+    opt.textContent = w.name;
+    weekSelect.appendChild(opt);
+  });
+
+  if (currentVal && cachedWeeks.some(w => w.id === currentVal)) {
+    weekSelect.value = currentVal;
+  }
+
+  weekSelect.disabled = false;
+}
+
+weekSelect.addEventListener("change", () => {
+  loadWeekContent();
 });
 
-// ── Week selection → live fetch questions & resources ──────────
-weekSelect.addEventListener("change", () => {
+// ── 4. Load & Display Questions for Course + Paper Type + Week
+function loadWeekContent() {
   const cid = courseSelect.value;
   const wid = weekSelect.value;
 
   if (unsubStudyQuestions) { unsubStudyQuestions(); unsubStudyQuestions = null; }
   if (unsubStudyResources) { unsubStudyResources(); unsubStudyResources = null; }
 
-  if (!cid || !wid) return;
+  if (!cid || !wid || !selectedPaperType) return;
 
-  if (emptyState) emptyState.classList.add("hidden");
-
-  // Real-time Resources Listener
+  // Real-time Resources Listener (Solution keys / official PDFs)
   unsubStudyResources = subscribeToResources(cid, wid, (resources) => {
     if (resources && resources.length > 0) {
       if (resourcesArea) resourcesArea.classList.remove("hidden");
@@ -106,23 +280,66 @@ weekSelect.addEventListener("change", () => {
     }
   });
 
-  // Real-time Questions Listener
+  // Real-time Questions Listener filtered by selectedPaperType
   unsubStudyQuestions = subscribeToQuestions(cid, wid, (questions) => {
     if (questions.length === 0) {
-      if (emptyState) emptyState.classList.remove("hidden");
       questionsArea.innerHTML = "";
-      if (qCount) qCount.textContent = "";
+      if (qCount) {
+        qCount.textContent = "";
+        qCount.className = "hidden";
+      }
+
+      if (selectedPaperType === "pyq") {
+        showEmptyState(
+          "PYQs are not available for this week yet.",
+          "Previous-year questions have not been added for this week yet. You can practice the Current Year assignment instead or pick another week.",
+          `<button type="button" id="switch-to-current-btn" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition cursor-pointer flex items-center gap-1.5">
+             <span>📘 Switch to Current Year</span>
+           </button>`
+        );
+        const switchBtn = document.getElementById("switch-to-current-btn");
+        if (switchBtn) {
+          switchBtn.addEventListener("click", () => setPaperType("current"));
+        }
+      } else {
+        showEmptyState(
+          "No Current Year Questions Available",
+          "Current Year questions have not been uploaded for this week yet. Please check back later or select another week."
+        );
+      }
       return;
     }
 
     if (emptyState) emptyState.classList.add("hidden");
+
     if (qCount) {
-      qCount.textContent = `${questions.length} question${questions.length !== 1 ? "s" : ""}`;
+      const typeLabel = selectedPaperType === "pyq" ? "📙 PYQ" : "📘 Current Year";
+      qCount.textContent = `${typeLabel} • ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
+      qCount.className = selectedPaperType === "pyq"
+        ? "inline-flex items-center px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold self-start md:self-auto"
+        : "inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold self-start md:self-auto";
     }
 
     renderQuestions(questions);
-  });
-});
+  }, selectedPaperType);
+}
+
+function showEmptyState(title, desc, actionsHtml = "") {
+  if (!emptyState) return;
+  emptyState.classList.remove("hidden");
+  if (emptyStateTitle) emptyStateTitle.textContent = title;
+  if (emptyStateDesc) emptyStateDesc.textContent = desc;
+
+  if (emptyStateActions) {
+    if (actionsHtml) {
+      emptyStateActions.innerHTML = actionsHtml;
+      emptyStateActions.classList.remove("hidden");
+    } else {
+      emptyStateActions.innerHTML = "";
+      emptyStateActions.classList.add("hidden");
+    }
+  }
+}
 
 // ── Render question cards ─────────────────────────────────────
 function renderQuestions(questions) {
@@ -130,19 +347,19 @@ function renderQuestions(questions) {
 
   questions.forEach((q, idx) => {
     const card = document.createElement("div");
-    card.className = "study-card bg-white rounded-2xl shadow-md border border-gray-100 p-6 mb-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5";
+    card.className = "study-card bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-gray-100 dark:border-slate-700 p-6 mb-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5";
 
     const optionsHTML = q.options.map((opt, i) => {
       const isCorrect = i === q.correctOptionIndex;
       const baseClass = isCorrect
-        ? "flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border-2 border-emerald-500 font-semibold"
-        : "flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-slate-200 font-medium";
+        ? "flex items-start gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border-2 border-emerald-500 font-semibold"
+        : "flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 font-medium";
       const labelClass = isCorrect
         ? "flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center shadow-sm"
-        : "flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 text-slate-700 text-xs font-bold flex items-center justify-center";
+        : "flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center";
       const textClass = isCorrect
-        ? "text-sm text-emerald-900 flex-1 leading-normal"
-        : "text-sm text-slate-800 flex-1 leading-normal";
+        ? "text-sm text-emerald-900 dark:text-emerald-200 flex-1 leading-normal"
+        : "text-sm text-slate-800 dark:text-slate-200 flex-1 leading-normal";
       const icon = isCorrect ? `<svg class="ml-auto w-4 h-4 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>` : "";
 
       return `<div class="${baseClass}">
@@ -153,25 +370,32 @@ function renderQuestions(questions) {
     }).join("");
 
     const explHTML = q.explanation && q.explanation !== "No explanation provided."
-      ? `<details class="expl-details group mt-4 border border-indigo-200/80 bg-indigo-50/70 rounded-xl overflow-hidden transition-all duration-200">
-           <summary class="flex items-center justify-between p-3.5 text-xs font-bold text-indigo-900 cursor-pointer select-none hover:bg-indigo-100/70 transition">
+      ? `<details class="expl-details group mt-4 border border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl overflow-hidden transition-all duration-200">
+           <summary class="flex items-center justify-between p-3.5 text-xs font-bold text-indigo-900 dark:text-indigo-200 cursor-pointer select-none hover:bg-indigo-100/70 dark:hover:bg-indigo-900/50 transition">
              <span class="flex items-center gap-2">
-               <svg class="w-4 h-4 text-indigo-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+               <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
                View Detailed Explanation
              </span>
              <svg class="w-4 h-4 text-indigo-500 transform group-open:rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
            </summary>
-           <div class="expl-body px-4 pb-4 pt-2 border-t border-indigo-200/60 bg-white/70 text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+           <div class="expl-body px-4 pb-4 pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40 bg-white/70 dark:bg-slate-900/70 text-xs sm:text-sm text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
              ${escHtml(q.explanation)}
            </div>
          </details>`
       : "";
 
+    const typeTag = selectedPaperType === "pyq" || q.questionType === "pyq" || q.isPYQ
+      ? `<span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold uppercase tracking-wider">PYQ</span>`
+      : `<span class="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider">Current Year</span>`;
+
     card.innerHTML = `
-      <div class="flex items-start gap-3 mb-4">
-        <span class="flex-shrink-0 w-9 h-9 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">${idx + 1}</span>
-        <p class="text-gray-800 font-medium text-base leading-relaxed mt-1">${escHtml(q.text)}</p>
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="flex-shrink-0 w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-xs font-bold shadow-sm">${idx + 1}</span>
+          ${typeTag}
+        </div>
       </div>
+      <p class="text-slate-800 dark:text-slate-100 font-medium text-base leading-relaxed mb-4">${escHtml(q.text)}</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-1">
         ${optionsHTML}
       </div>
@@ -180,7 +404,7 @@ function renderQuestions(questions) {
     questionsArea.appendChild(card);
   });
 
-  // Animate in
+  // Smooth appearance animation
   requestAnimationFrame(() => {
     questionsArea.querySelectorAll(".study-card").forEach((card, i) => {
       card.style.opacity = "0";
@@ -189,18 +413,18 @@ function renderQuestions(questions) {
         card.style.transition = "opacity 0.35s ease, transform 0.35s ease";
         card.style.opacity = "1";
         card.style.transform = "translateY(0)";
-      }, i * 60);
+      }, i * 50);
     });
   });
 }
 
 function escHtml(str) {
-  return String(str)
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-// ── Start ─────────────────────────────────────────────────────
+// ── Run Init ──────────────────────────────────────────────────
 init();

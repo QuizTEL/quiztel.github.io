@@ -16,7 +16,6 @@ import {
   increment,
   onSnapshot,
   query,
-  orderBy,
   limit,
   addDoc,
   serverTimestamp
@@ -36,6 +35,25 @@ const LOCAL_ANALYTICS_KEY    = "quiztel_local_analytics";
 const LOCAL_DAILY_KEY        = "quiztel_local_daily_analytics";
 const OFFLINE_FEEDBACK_KEY   = "quiztel_offline_feedbacks";
 const OFFLINE_SUGGEST_Q_KEY  = "quiztel_offline_suggested_questions";
+
+// Cross-tab & intra-window real-time synchronization channel
+let syncChannel = null;
+try {
+  if (typeof BroadcastChannel !== "undefined") {
+    syncChannel = new BroadcastChannel("quiztel_sync_channel");
+  }
+} catch (e) {}
+
+function broadcastUpdate(type, data = null) {
+  try {
+    if (syncChannel) {
+      syncChannel.postMessage({ type, data, timestamp: Date.now() });
+    }
+  } catch (e) {}
+  try {
+    window.dispatchEvent(new CustomEvent(type.toLowerCase(), { detail: data }));
+  } catch (e) {}
+}
 
 function getTodayStr() {
   const d = new Date();
@@ -136,9 +154,7 @@ export function initPresence() {
         page: window.location.pathname.split("/").pop() || "index.html",
         userAgent: navigator.userAgent
       }, { merge: true });
-    } catch (err) {
-      // Presence ping fallback
-    }
+    } catch (err) {}
   };
 
   ping();
@@ -172,7 +188,6 @@ export function subscribeToLivePresence(callback) {
 
     callback({ activeCount: Math.max(activeCount, 1), activePages });
   }, (err) => {
-    // If permissions fail or offline, assume at least 1 active user (admin or current visitor)
     callback({ activeCount: 1, activePages: { [window.location.pathname.split("/").pop() || "index.html"]: 1 } });
   });
 }
@@ -357,7 +372,7 @@ export async function submitFeedback({ rating, category, message, page, userName
     createdDateStr: new Date().toLocaleString()
   };
 
-  // Always save locally first as safe fallback
+  // Save locally first as instant optimistic fallback
   const localList = JSON.parse(localStorage.getItem(OFFLINE_FEEDBACK_KEY) || "[]");
   const localItem = {
     ...docData,
@@ -366,6 +381,9 @@ export async function submitFeedback({ rating, category, message, page, userName
   };
   localList.unshift(localItem);
   localStorage.setItem(OFFLINE_FEEDBACK_KEY, JSON.stringify(localList));
+
+  // Instantly broadcast update to any open tabs/windows
+  broadcastUpdate("quiztel_feedback_updated", localItem);
 
   try {
     await ensureAuth();
@@ -378,19 +396,16 @@ export async function submitFeedback({ rating, category, message, page, userName
     return true;
   } catch (err) {
     console.warn("Feedback submitted to local store (cloud permission/offline notice):", err.message);
-    // Returning true because local fallback succeeded seamlessly
     return true;
   }
 }
 
 // ── Subscribe to User Feedbacks List (Admin) ──────────────────
 export function subscribeToFeedbacks(callback) {
-  const q = query(FEEDBACK_COL, orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => {
-    const firestoreList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  let firestoreList = [];
+
+  const notify = () => {
     const offlineList = JSON.parse(localStorage.getItem(OFFLINE_FEEDBACK_KEY) || "[]");
-    
-    // Merge without duplicates
     const combined = [...firestoreList];
     offlineList.forEach(item => {
       if (!combined.some(c => c.id === item.id || (c.message === item.message && c.createdDateStr === item.createdDateStr))) {
@@ -398,12 +413,48 @@ export function subscribeToFeedbacks(callback) {
       }
     });
 
+    // Client-side sort by date descending
+    combined.sort((a, b) => {
+      const tA = (a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (typeof a.createdAt === 'number' ? a.createdAt : 0));
+      const tB = (b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (typeof b.createdAt === 'number' ? b.createdAt : 0));
+      return tB - tA;
+    });
+
     callback(combined);
+  };
+
+  // 1. Initial local notify immediately
+  notify();
+
+  // 2. Firestore real-time listener (without strict index constraint)
+  const unsubFirestore = onSnapshot(FEEDBACK_COL, (snap) => {
+    firestoreList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    notify();
   }, (err) => {
-    console.warn("Feedback subscription fallback to local cache:", err.message);
-    const offlineList = JSON.parse(localStorage.getItem(OFFLINE_FEEDBACK_KEY) || "[]");
-    callback(offlineList);
+    console.warn("Feedback snapshot fallback to local:", err.message);
+    notify();
   });
+
+  // 3. Cross-tab & intra-window listeners for instantaneous reflection
+  const handleStorage = (e) => {
+    if (e.key === OFFLINE_FEEDBACK_KEY) notify();
+  };
+  const handleLocalEvent = () => notify();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("quiztel_feedback_updated", handleLocalEvent);
+
+  if (syncChannel) {
+    syncChannel.addEventListener("message", (e) => {
+      if (e.data?.type === "quiztel_feedback_updated") notify();
+    });
+  }
+
+  return () => {
+    unsubFirestore();
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("quiztel_feedback_updated", handleLocalEvent);
+  };
 }
 
 // ── Delete Feedback ───────────────────────────────────────────
@@ -411,6 +462,7 @@ export async function deleteFeedback(feedbackId) {
   let offlineList = JSON.parse(localStorage.getItem(OFFLINE_FEEDBACK_KEY) || "[]");
   offlineList = offlineList.filter(item => item.id !== feedbackId);
   localStorage.setItem(OFFLINE_FEEDBACK_KEY, JSON.stringify(offlineList));
+  broadcastUpdate("quiztel_feedback_updated");
 
   if (!String(feedbackId).startsWith("local_")) {
     try {
@@ -427,6 +479,7 @@ export async function toggleFeedbackStatus(feedbackId, newStatus) {
   const target = offlineList.find(item => item.id === feedbackId);
   if (target) target.reviewed = newStatus;
   localStorage.setItem(OFFLINE_FEEDBACK_KEY, JSON.stringify(offlineList));
+  broadcastUpdate("quiztel_feedback_updated");
 
   if (!String(feedbackId).startsWith("local_")) {
     try {
@@ -470,7 +523,7 @@ export async function submitSuggestedQuestions({ courseId, courseName, submitter
     createdDateStr: new Date().toLocaleString()
   };
 
-  // Always save locally first as safe fallback
+  // 1. Instantly save in local storage
   const localList = JSON.parse(localStorage.getItem(OFFLINE_SUGGEST_Q_KEY) || "[]");
   const localItem = {
     ...docData,
@@ -480,6 +533,10 @@ export async function submitSuggestedQuestions({ courseId, courseName, submitter
   localList.unshift(localItem);
   localStorage.setItem(OFFLINE_SUGGEST_Q_KEY, JSON.stringify(localList));
 
+  // 2. Broadcast immediately so active admin tab sees it instantly (0ms delay)
+  broadcastUpdate("quiztel_suggested_questions_updated", localItem);
+
+  // 3. Write to Cloud Firestore
   try {
     await ensureAuth();
     await addDoc(SUGGESTED_Q_COL, docData);
@@ -490,11 +547,11 @@ export async function submitSuggestedQuestions({ courseId, courseName, submitter
   }
 }
 
-/** Real-time Subscribe to Suggested Questions List (Admin) */
+/** Real-time Subscribe to Suggested Questions List (Admin) with Instant Reflection */
 export function subscribeToSuggestedQuestions(callback) {
-  const q = query(SUGGESTED_Q_COL, orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => {
-    const firestoreList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  let firestoreList = [];
+
+  const notify = () => {
     const offlineList = JSON.parse(localStorage.getItem(OFFLINE_SUGGEST_Q_KEY) || "[]");
 
     const combined = [...firestoreList];
@@ -504,12 +561,74 @@ export function subscribeToSuggestedQuestions(callback) {
       }
     });
 
+    // In-memory sort by createdAt descending (no Firestore composite index required!)
+    combined.sort((a, b) => {
+      const tA = (a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (typeof a.createdAt === 'number' ? a.createdAt : 0));
+      const tB = (b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (typeof b.createdAt === 'number' ? b.createdAt : 0));
+      return tB - tA;
+    });
+
     callback(combined);
+  };
+
+  // 1. Initial notification immediately from local queue
+  notify();
+
+  // 2. Real-time Firestore snapshot listener on the collection
+  const unsubFirestore = onSnapshot(SUGGESTED_Q_COL, (snap) => {
+    firestoreList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    notify();
   }, (err) => {
-    console.warn("Suggested questions subscription fallback to local cache:", err.message);
-    const offlineList = JSON.parse(localStorage.getItem(OFFLINE_SUGGEST_Q_KEY) || "[]");
-    callback(offlineList);
+    console.warn("Suggested questions snapshot fallback to local:", err.message);
+    notify();
   });
+
+  // 3. Cross-tab storage event & BroadcastChannel listeners
+  const handleStorage = (e) => {
+    if (e.key === OFFLINE_SUGGEST_Q_KEY) notify();
+  };
+  const handleLocalEvent = () => notify();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("quiztel_suggested_questions_updated", handleLocalEvent);
+
+  if (syncChannel) {
+    syncChannel.addEventListener("message", (e) => {
+      if (e.data?.type === "quiztel_suggested_questions_updated") notify();
+    });
+  }
+
+  return () => {
+    unsubFirestore();
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("quiztel_suggested_questions_updated", handleLocalEvent);
+  };
+}
+
+/** Update the question data inside a submission (Allows Admin to edit user-submitted questions!) */
+export async function updateSuggestedQuestionData(submissionId, updatedQuestions, metaUpdates = {}) {
+  let offlineList = JSON.parse(localStorage.getItem(OFFLINE_SUGGEST_Q_KEY) || "[]");
+  const target = offlineList.find(item => item.id === submissionId);
+  if (target) {
+    target.questions = updatedQuestions;
+    target.questionCount = updatedQuestions.length;
+    Object.assign(target, metaUpdates);
+  }
+  localStorage.setItem(OFFLINE_SUGGEST_Q_KEY, JSON.stringify(offlineList));
+  broadcastUpdate("quiztel_suggested_questions_updated", target);
+
+  if (!String(submissionId).startsWith("local_")) {
+    try {
+      await updateDoc(doc(SUGGESTED_Q_COL, submissionId), {
+        questions: updatedQuestions,
+        questionCount: updatedQuestions.length,
+        ...metaUpdates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.warn("Firestore question data update notice:", err.message);
+    }
+  }
 }
 
 /** Update status of a suggested question submission (e.g. approved / rejected) */
@@ -521,6 +640,7 @@ export async function updateSuggestedQuestionStatus(submissionId, status, detail
     Object.assign(target, details);
   }
   localStorage.setItem(OFFLINE_SUGGEST_Q_KEY, JSON.stringify(offlineList));
+  broadcastUpdate("quiztel_suggested_questions_updated", target);
 
   if (!String(submissionId).startsWith("local_")) {
     try {
@@ -540,6 +660,7 @@ export async function deleteSuggestedQuestion(submissionId) {
   let offlineList = JSON.parse(localStorage.getItem(OFFLINE_SUGGEST_Q_KEY) || "[]");
   offlineList = offlineList.filter(item => item.id !== submissionId);
   localStorage.setItem(OFFLINE_SUGGEST_Q_KEY, JSON.stringify(offlineList));
+  broadcastUpdate("quiztel_suggested_questions_updated");
 
   if (!String(submissionId).startsWith("local_")) {
     try {
@@ -556,7 +677,6 @@ export function subscribeToAnalytics(callback) {
     const local = getLocalAnalytics();
     if (snap.exists()) {
       const data = snap.data();
-      // Merge cloud and local metrics so real activity is never lost
       callback({
         pageViews: Math.max(Number(data.pageViews || 0), Number(local.pageViews || 0)),
         uniqueVisitors: Math.max(Number(data.uniqueVisitors || 0), Number(local.uniqueVisitors || 0)),
@@ -584,7 +704,6 @@ export function subscribeToAnalytics(callback) {
       });
     }
   }, (err) => {
-    console.warn("Analytics snapshot fallback to local data:", err.message);
     const local = getLocalAnalytics();
     callback({
       pageViews: Number(local.pageViews || 0),
@@ -608,7 +727,7 @@ export async function fetchDailyAnalytics(days = 30) {
 
   try {
     await ensureAuth();
-    const q = query(DAILY_COLLECTION, orderBy("date", "desc"), limit(days));
+    const q = query(DAILY_COLLECTION, limit(days));
     const snap = await getDocs(q);
     snap.docs.forEach(d => {
       docsMap[d.id] = d.data();
@@ -627,7 +746,6 @@ export async function fetchDailyAnalytics(days = 30) {
     const cloudEntry = docsMap[dateStr] || {};
     const localEntry = localDaily[dateStr] || {};
 
-    // Combine hourly views
     const combinedHourly = { ...(cloudEntry.hourlyViews || {}) };
     if (localEntry.hourlyViews) {
       Object.entries(localEntry.hourlyViews).forEach(([hKey, count]) => {

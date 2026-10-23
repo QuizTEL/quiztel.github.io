@@ -1,6 +1,6 @@
 // ============================================================
 //  QuizTEL — Quiz Engine (quiz.js)
-//  Handles setup → quiz → results state machine
+//  Course → Paper Type (Current/PYQ) → Week(s) → Quiz
 // ============================================================
 
 import {
@@ -15,9 +15,14 @@ const setupPanel    = document.getElementById("setup-panel");
 const quizPanel     = document.getElementById("quiz-panel");
 const resultsPanel  = document.getElementById("results-panel");
 
-const courseSelect  = document.getElementById("course-select");
+const courseSelect        = document.getElementById("course-select");
+const quizPaperCurrentBtn = document.getElementById("quiz-paper-current-btn");
+const quizPaperPyqBtn     = document.getElementById("quiz-paper-pyq-btn");
+const quizPaperHint       = document.getElementById("quiz-paper-hint");
+const quizPaperBadge      = document.getElementById("quiz-paper-badge");
+
 const weekContainer = document.getElementById("week-container");
-const allWeeksChk   = document.getElementById("all-weeks");
+const toggleAllBtn  = document.getElementById("toggle-all-weeks-btn");
 const modeRadios    = document.querySelectorAll("input[name='quiz-mode']");
 const startBtn      = document.getElementById("start-btn");
 
@@ -40,12 +45,13 @@ const shareScoreBtn = document.getElementById("share-score-btn");
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
 // ── State ─────────────────────────────────────────────────────
-let allWeeks            = [];
-let builtQuiz           = [];   // [{text, options, correctOptionIndex, explanation}]
-let userAnswers         = [];   // index of selected option per question, or null
-let currentQIdx         = 0;
-let courseId            = "";
-let autoAdvanceTimeout  = null;
+let allWeeks               = [];
+let builtQuiz              = [];   // [{text, options, correctOptionIndex, explanation}]
+let userAnswers            = [];   // index of selected option per question, or null
+let currentQIdx            = 0;
+let courseId               = "";
+let autoAdvanceTimeout     = null;
+let selectedQuizPaperType  = null; // "current" | "pyq"
 
 let unsubQuizCourses = null;
 let unsubQuizWeeks   = null;
@@ -59,48 +65,166 @@ function init() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const targetCourseId = urlParams.get("course");
+  const targetType = urlParams.get("type"); // optional preset type
 
   unsubQuizCourses = subscribeToCourses((courses) => {
     const curVal = courseSelect.value || (targetCourseId && courses.some(c => c.id === targetCourseId) ? targetCourseId : "");
-    populateSelect(courseSelect, courses, "— Choose a Course —");
+    populateSelect(courseSelect, courses, "— Choose NPTEL Course —");
     if (curVal) {
       courseSelect.value = curVal;
-      courseSelect.dispatchEvent(new Event("change"));
+      onCourseSelected(curVal, targetType);
     }
   });
+
+  // Attach Paper Type card click listeners
+  if (quizPaperCurrentBtn) {
+    quizPaperCurrentBtn.addEventListener("click", () => {
+      if (quizPaperCurrentBtn.disabled) return;
+      setQuizPaperType("current");
+    });
+  }
+
+  if (quizPaperPyqBtn) {
+    quizPaperPyqBtn.addEventListener("click", () => {
+      if (quizPaperPyqBtn.disabled) return;
+      setQuizPaperType("pyq");
+    });
+  }
+
+  // Mode radio pills styling
+  document.querySelectorAll("input[name='quiz-mode']").forEach(radio => {
+    radio.addEventListener("change", updateModePillStyles);
+  });
+  updateModePillStyles();
 }
 
-// ── Course → live load weeks into checkboxes ──────────────────
+// ── 1. Course Selection ───────────────────────────────────────
 courseSelect.addEventListener("change", () => {
-  courseId = courseSelect.value;
+  onCourseSelected(courseSelect.value);
+});
+
+function onCourseSelected(cid, initialType = null) {
+  courseId = cid;
   startBtn.disabled = true;
-  if (allWeeksChk) allWeeksChk.checked = false;
 
   if (unsubQuizWeeks) { unsubQuizWeeks(); unsubQuizWeeks = null; }
 
   if (!courseId) {
-    weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">Select a course above to view available weeks.</p>`;
+    selectedQuizPaperType = null;
+    updateQuizPaperTypeUI(null);
+    disableQuizPaperControls(true);
+    weekContainer.innerHTML = `<p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">Select a course and question paper type above to choose weeks.</p>`;
+    if (toggleAllBtn) toggleAllBtn.disabled = true;
     return;
   }
 
+  // Course selected: enable paper type buttons and prompt user
+  disableQuizPaperControls(false);
+
+  // Subscribe to weeks of this course
   unsubQuizWeeks = subscribeToWeeks(courseId, (weeks) => {
     allWeeks = weeks;
-    if (weeks.length === 0) {
-      weekContainer.innerHTML = `<p class="text-sm text-slate-400 col-span-full text-center py-4">No weeks found for this course.</p>`;
-      validateStart();
-      return;
+    if (selectedQuizPaperType) {
+      renderWeekPills(allWeeks);
     }
-
-    renderWeekPills(weeks);
   });
-});
 
+  if (initialType === "pyq" || initialType === "current") {
+    setQuizPaperType(initialType);
+  } else {
+    // Keep weeks locked until user chooses paper type
+    selectedQuizPaperType = null;
+    updateQuizPaperTypeUI(null);
+    weekContainer.innerHTML = `<p class="text-sm text-slate-500 dark:text-slate-400 col-span-full text-center py-4 font-medium">Please choose 📘 Current Year or 📙 Previous Year Questions (PYQ) above to unlock weeks.</p>`;
+    if (toggleAllBtn) toggleAllBtn.disabled = true;
+  }
+
+  validateStart();
+}
+
+function disableQuizPaperControls(disabled) {
+  if (quizPaperCurrentBtn) {
+    quizPaperCurrentBtn.disabled = disabled;
+    if (disabled) {
+      quizPaperCurrentBtn.classList.add("opacity-50", "cursor-not-allowed");
+      quizPaperCurrentBtn.classList.remove("cursor-pointer", "hover:border-indigo-400");
+    } else {
+      quizPaperCurrentBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      quizPaperCurrentBtn.classList.add("cursor-pointer");
+    }
+  }
+
+  if (quizPaperPyqBtn) {
+    quizPaperPyqBtn.disabled = disabled;
+    if (disabled) {
+      quizPaperPyqBtn.classList.add("opacity-50", "cursor-not-allowed");
+      quizPaperPyqBtn.classList.remove("cursor-pointer", "hover:border-amber-400");
+    } else {
+      quizPaperPyqBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      quizPaperPyqBtn.classList.add("cursor-pointer");
+    }
+  }
+
+  if (quizPaperHint) {
+    if (disabled) {
+      quizPaperHint.textContent = "Select a course above first to choose paper type.";
+      quizPaperHint.className = "text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 italic";
+    } else {
+      quizPaperHint.textContent = "Click an option above to unlock week selection.";
+      quizPaperHint.className = "text-[11px] text-indigo-600 dark:text-indigo-400 mt-1.5 font-semibold";
+    }
+  }
+}
+
+// ── 2. Paper Type Selection ───────────────────────────────────
+function setQuizPaperType(type) {
+  selectedQuizPaperType = type;
+  updateQuizPaperTypeUI(type);
+
+  // Render week pills for the selected course
+  if (allWeeks.length > 0) {
+    renderWeekPills(allWeeks);
+  } else {
+    weekContainer.innerHTML = `<p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">No weeks found for this course.</p>`;
+  }
+
+  if (toggleAllBtn) toggleAllBtn.disabled = false;
+  validateStart();
+}
+
+function updateQuizPaperTypeUI(type) {
+  // Current Year Button Styling
+  if (quizPaperCurrentBtn) {
+    const badge = quizPaperCurrentBtn.querySelector(".paper-badge");
+    if (type === "current") {
+      quizPaperCurrentBtn.className = "quiz-paper-card text-left p-4 rounded-2xl border-2 border-indigo-600 dark:border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+    } else {
+      quizPaperCurrentBtn.className = "quiz-paper-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition";
+    }
+  }
+
+  // PYQ Button Styling
+  if (quizPaperPyqBtn) {
+    const badge = quizPaperPyqBtn.querySelector(".paper-badge");
+    if (type === "pyq") {
+      quizPaperPyqBtn.className = "quiz-paper-card text-left p-4 rounded-2xl border-2 border-amber-500 dark:border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-2 ring-amber-500/20 shadow-md cursor-pointer transition-all duration-200 group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full bg-amber-500 border-2 border-amber-500 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+    } else {
+      quizPaperPyqBtn.className = "quiz-paper-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-amber-400 hover:bg-amber-50/30 transition-all duration-200 cursor-pointer group flex items-start gap-3.5 select-none";
+      if (badge) badge.className = "paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition";
+    }
+  }
+}
+
+// ── 3. Week Pills Rendering & Selection ───────────────────────
 function renderWeekPills(weeks) {
   weekContainer.innerHTML = weeks.map(w => `
-    <label class="week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none">
+    <label class="week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none">
       <input type="checkbox" name="week" value="${w.id}" class="week-chk sr-only">
-      <span class="week-title text-xs font-bold text-slate-700 group-hover:text-indigo-600 transition">${escHtml(w.name)}</span>
-      <span class="week-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
+      <span class="week-title text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">${escHtml(w.name)}</span>
+      <span class="week-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
     </label>
   `).join("");
 
@@ -111,12 +235,9 @@ function renderWeekPills(weeks) {
     });
   });
 
-  // Auto-check first week when navigating directly from Home page course card
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("course") && weeks.length > 0) {
-    const firstChk = weekContainer.querySelector("input[type='checkbox']");
-    if (firstChk) firstChk.checked = true;
-  }
+  // Auto-check first week if only 1 week or navigated with intent
+  const firstChk = weekContainer.querySelector("input[type='checkbox']");
+  if (firstChk) firstChk.checked = true;
 
   updateWeekPillStyles();
   validateStart();
@@ -129,19 +250,24 @@ function updateWeekPillStyles() {
     const title = card.querySelector(".week-title");
 
     if (chk.checked) {
-      card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group select-none";
-      if (title) title.className = "week-title text-xs font-extrabold text-indigo-900 transition";
-      if (badge) badge.className = "week-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+      if (selectedQuizPaperType === "pyq") {
+        card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-2 ring-amber-500/20 shadow-md cursor-pointer transition-all duration-200 group select-none";
+        if (title) title.className = "week-title text-xs font-extrabold text-amber-950 dark:text-amber-200 transition";
+        if (badge) badge.className = "week-badge w-5 h-5 rounded-full bg-amber-500 border-2 border-amber-500 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+      } else {
+        card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group select-none";
+        if (title) title.className = "week-title text-xs font-extrabold text-indigo-900 dark:text-indigo-200 transition";
+        if (badge) badge.className = "week-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition scale-110";
+      }
     } else {
-      card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none";
-      if (title) title.className = "week-title text-xs font-bold text-slate-700 group-hover:text-indigo-600 transition";
-      if (badge) badge.className = "week-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition";
+      card.className = "week-pill-card relative flex items-center justify-between p-3.5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group select-none";
+      if (title) title.className = "week-title text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition";
+      if (badge) badge.className = "week-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition";
     }
   });
 }
 
 // "Select All Weeks" button handler
-const toggleAllBtn = document.getElementById("toggle-all-weeks-btn");
 if (toggleAllBtn) {
   toggleAllBtn.addEventListener("click", () => {
     const chks = [...weekContainer.querySelectorAll("input[type='checkbox']")];
@@ -153,62 +279,83 @@ if (toggleAllBtn) {
   });
 }
 
-// ── Randomization Mode Pill Styles & Event Listeners ──────────
+// ── 4. Randomization Modes & Validation ───────────────────────
 function updateModePillStyles() {
   document.querySelectorAll(".mode-pill-card").forEach(card => {
     const radio = card.querySelector("input[type='radio']");
     const badge = card.querySelector(".mode-badge");
 
     if (radio.checked) {
-      card.className = "mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500/20 shadow-md cursor-pointer transition-all duration-200 group select-none";
-      if (badge) badge.className = "mode-badge w-5 h-5 rounded-full bg-indigo-600 border-2 border-indigo-600 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0 scale-110";
+      card.classList.add("border-indigo-600", "bg-indigo-50/70", "ring-2", "ring-indigo-500/20", "shadow-sm");
+      card.classList.remove("border-slate-200", "bg-white");
+      if (badge) {
+        badge.classList.add("bg-indigo-600", "border-indigo-600", "scale-110");
+        badge.classList.remove("border-slate-300");
+      }
     } else {
-      card.className = "mode-pill-card relative flex items-start gap-3.5 p-4 rounded-2xl border-2 border-slate-200 bg-white cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group select-none";
-      if (badge) badge.className = "mode-badge w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] text-white font-bold transition mt-0.5 flex-shrink-0";
+      card.classList.remove("border-indigo-600", "bg-indigo-50/70", "ring-2", "ring-indigo-500/20", "shadow-sm");
+      card.classList.add("border-slate-200", "bg-white");
+      if (badge) {
+        badge.classList.remove("bg-indigo-600", "border-indigo-600", "scale-110");
+        badge.classList.add("border-slate-300");
+      }
     }
   });
 }
 
-document.querySelectorAll(".mode-pill-card input[type='radio']").forEach(radio => {
-  radio.addEventListener("change", updateModePillStyles);
-});
-updateModePillStyles();
+function getMode() {
+  const checked = document.querySelector("input[name='quiz-mode']:checked");
+  return checked ? checked.value : "normal";
+}
 
 function validateStart() {
-  const anyWeekChecked = [...weekContainer.querySelectorAll("input[type='checkbox']")].some(cb => cb.checked);
-  startBtn.disabled = !anyWeekChecked;
+  const hasCourse = Boolean(courseSelect.value);
+  const hasType = Boolean(selectedQuizPaperType);
+  const hasWeeks = weekContainer.querySelectorAll("input[type='checkbox']:checked").length > 0;
+  startBtn.disabled = !(hasCourse && hasType && hasWeeks);
 }
 
-// ── Get selected mode ─────────────────────────────────────────
-function getMode() {
-  for (const r of modeRadios) if (r.checked) return r.value;
-  return "normal";
-}
-
-// ── Start Quiz ────────────────────────────────────────────────
+// ── 5. Start Quiz ─────────────────────────────────────────────
 startBtn.addEventListener("click", async () => {
+  if (!courseId || !selectedQuizPaperType) return;
   const selectedWeekIds = [...weekContainer.querySelectorAll("input[type=checkbox]:checked")].map(cb => cb.value);
   if (!selectedWeekIds.length) return;
   const mode = getMode();
 
-  showSpinner("Building quiz…");
+  showSpinner(`Loading ${selectedQuizPaperType === "pyq" ? "Previous Year Questions" : "Current Year Questions"}…`);
 
   try {
     let rawQuestions = [];
     for (const wid of selectedWeekIds) {
-      const qs = await loadQuestions(courseId, wid);
+      const qs = await loadQuestions(courseId, wid, selectedQuizPaperType);
       rawQuestions.push(...qs);
     }
 
     if (!rawQuestions.length) {
       hideSpinner();
-      showToast("No questions found for the selected week(s).", "info");
+      if (selectedQuizPaperType === "pyq") {
+        showToast("PYQs are not available for the selected week(s) yet.", "warning");
+      } else {
+        showToast("No questions found for the selected week(s).", "info");
+      }
       return;
     }
 
     builtQuiz   = buildQuiz(rawQuestions, mode);
     userAnswers = new Array(builtQuiz.length).fill(null);
     currentQIdx = 0;
+
+    // Header Paper Type Badge
+    if (quizPaperBadge) {
+      quizPaperBadge.classList.remove("hidden");
+      if (selectedQuizPaperType === "pyq") {
+        quizPaperBadge.textContent = "📙 PYQ Quiz";
+        quizPaperBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300";
+      } else {
+        quizPaperBadge.textContent = "📘 Current Year Quiz";
+        quizPaperBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 border border-indigo-300";
+      }
+    }
 
     hideSpinner();
     showPanel("quiz");
@@ -235,7 +382,6 @@ function buildQuiz(questions, mode) {
 
     // Shuffle option order if needed
     if (mode === "mixed-options" || mode === "mixed-both") {
-      // Create indexed options, shuffle, track new correct position
       const indexed = options.map((opt, i) => ({ opt, isCorrect: i === correctIndex }));
       const shuffled = shuffleArray(indexed);
       options      = shuffled.map(x => x.opt);
@@ -246,7 +392,8 @@ function buildQuiz(questions, mode) {
       text:               q.text,
       options,
       correctOptionIndex: correctIndex,
-      explanation:        q.explanation || ""
+      explanation:        q.explanation || "",
+      questionType:       q.questionType || (q.isPYQ ? "pyq" : "current")
     };
   });
 }
@@ -279,26 +426,21 @@ function renderQuestion() {
       let statusIcon = "";
 
       if (isAnswered) {
-        // Question has been answered -> apply GREEN/RED visual feedback
         if (i === q.correctOptionIndex) {
-          // Actual Correct Answer -> GREEN
           btnCls += "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200 scale-[1.01]";
           badgeCls += "bg-white/20 text-white";
           statusIcon = `<span class="text-xs font-extrabold px-2 py-0.5 bg-white/20 rounded-lg">✓ Correct</span>`;
         } else if (i === userAns) {
-          // Selected Wrong Answer -> RED
           btnCls += "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 scale-[1.01]";
           badgeCls += "bg-white/20 text-white";
           statusIcon = `<span class="text-xs font-extrabold px-2 py-0.5 bg-white/20 rounded-lg">✗ Wrong</span>`;
         } else {
-          // Other unselected options -> Muted
-          btnCls += "bg-slate-50/60 border-slate-200 text-slate-400 opacity-60";
-          badgeCls += "bg-slate-200 text-slate-500";
+          btnCls += "bg-slate-50/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-400 opacity-60";
+          badgeCls += "bg-slate-200 dark:bg-slate-700 text-slate-500";
         }
       } else {
-        // Not yet answered -> Standard unselected interactive state
-        btnCls += "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/50 hover:shadow-sm";
-        badgeCls += "bg-slate-100 text-slate-500";
+        btnCls += "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-slate-700/50 hover:shadow-sm";
+        badgeCls += "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300";
       }
 
       return `
@@ -337,12 +479,11 @@ function renderQuestion() {
 
 // ── Select Option with Instant Feedback & Auto-Next ──────────
 function selectOption(idx) {
-  if (userAnswers[currentQIdx] !== null) return; // Prevent double selections
+  if (userAnswers[currentQIdx] !== null) return;
 
   userAnswers[currentQIdx] = idx;
   renderQuestion();
 
-  // Automatic Next Question after 600ms visual feedback
   autoAdvanceTimeout = setTimeout(() => {
     if (currentQIdx < builtQuiz.length - 1) {
       currentQIdx++;
@@ -435,11 +576,11 @@ function showResults() {
       const optionsHTML = q.options.map((opt, oi) => {
         let cls = "flex items-start gap-2 p-2.5 rounded-xl text-sm border ";
         if (oi === q.correctOptionIndex) {
-          cls += "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold";
+          cls += "bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 font-bold";
         } else if (oi === ua && !isCorrect) {
-          cls += "bg-red-50 border-red-300 text-red-800 font-bold";
+          cls += "bg-red-50 dark:bg-red-950/50 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 font-bold";
         } else {
-          cls += "bg-gray-50 border-gray-200 text-gray-600";
+          cls += "bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400";
         }
 
         let icon = "";
@@ -450,35 +591,40 @@ function showResults() {
       }).join("");
 
       const statusBadge = isCorrect
-        ? `<span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">✓ Correct</span>`
+        ? `<span class="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full">✓ Correct</span>`
         : skipped
-        ? `<span class="px-2.5 py-0.5 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">— Skipped</span>`
-        : `<span class="px-2.5 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded-full">✗ Incorrect</span>`;
+        ? `<span class="px-2.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 text-xs font-bold rounded-full">— Skipped</span>`
+        : `<span class="px-2.5 py-0.5 bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-300 text-xs font-bold rounded-full">✗ Incorrect</span>`;
+
+      const typeTag = selectedQuizPaperType === "pyq" || q.questionType === "pyq"
+        ? `<span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold uppercase">PYQ</span>`
+        : `<span class="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 text-[10px] font-extrabold uppercase">Current Year</span>`;
 
       const explHTML = q.explanation && q.explanation !== "No explanation provided."
-        ? `<details class="expl-details group mt-3 border border-indigo-200/80 bg-indigo-50/70 rounded-xl overflow-hidden transition-all duration-200">
-             <summary class="flex items-center justify-between p-3 text-xs font-bold text-indigo-900 cursor-pointer select-none hover:bg-indigo-100/70 transition">
+        ? `<details class="expl-details group mt-3 border border-indigo-200/80 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl overflow-hidden transition-all duration-200">
+             <summary class="flex items-center justify-between p-3 text-xs font-bold text-indigo-900 dark:text-indigo-300 cursor-pointer select-none hover:bg-indigo-100/70 dark:hover:bg-indigo-900/60 transition">
                <span class="flex items-center gap-1.5">
-                 <svg class="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                 <svg class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
                  View Detailed Explanation
                </span>
                <svg class="w-3.5 h-3.5 text-indigo-500 transform group-open:rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
              </summary>
-             <div class="expl-body px-3.5 pb-3.5 pt-2 border-t border-indigo-200/60 bg-white/70 text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+             <div class="expl-body px-3.5 pb-3.5 pt-2 border-t border-indigo-200/60 dark:border-indigo-900 bg-white/70 dark:bg-slate-900/80 text-xs sm:text-sm text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
                ${escHtml(q.explanation)}
              </div>
            </details>`
         : "";
 
       return `
-        <div class="bg-white rounded-2xl shadow-sm border ${isCorrect ? "border-emerald-200" : skipped ? "border-gray-200" : "border-red-200"} p-5 mb-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border ${isCorrect ? "border-emerald-200 dark:border-emerald-800" : skipped ? "border-gray-200 dark:border-slate-700" : "border-red-200 dark:border-red-800"} p-5 mb-4">
           <div class="flex items-start justify-between gap-3 mb-3">
-            <div class="flex items-start gap-2">
-              <span class="flex-shrink-0 w-7 h-7 ${isCorrect ? "bg-emerald-500" : skipped ? "bg-gray-300" : "bg-red-400"} text-white rounded-full text-xs font-bold flex items-center justify-center">${i + 1}</span>
-              <p class="text-gray-800 font-medium text-sm leading-relaxed">${escHtml(q.text)}</p>
+            <div class="flex items-center gap-2">
+              <span class="flex-shrink-0 w-7 h-7 ${isCorrect ? "bg-emerald-500" : skipped ? "bg-gray-300 dark:bg-slate-600" : "bg-red-400"} text-white rounded-full text-xs font-bold flex items-center justify-center">${i + 1}</span>
+              ${typeTag}
             </div>
             ${statusBadge}
           </div>
+          <p class="text-slate-800 dark:text-slate-100 font-medium text-sm leading-relaxed mb-3">${escHtml(q.text)}</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             ${optionsHTML}
           </div>
@@ -493,7 +639,8 @@ function showResults() {
 // ── Share Score Button ─────────────────────────────────────────
 if (shareScoreBtn) {
   shareScoreBtn.addEventListener("click", async () => {
-    const text = `I just scored ${scorePct?.textContent || "great"} on QuizTEL NPTEL Quiz! Check out your NPTEL course prep here:`;
+    const paperName = selectedQuizPaperType === "pyq" ? "Previous Year (PYQ)" : "Current Year";
+    const text = `I just scored ${scorePct?.textContent || "great"} on QuizTEL NPTEL (${paperName}) Quiz! Practice your NPTEL courses here:`;
     const url = window.location.href;
 
     try {
@@ -523,12 +670,12 @@ function showPanel(name) {
 }
 
 function escHtml(str) {
-  return String(str)
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-// ── Start ─────────────────────────────────────────────────────
+// ── Run Init ──────────────────────────────────────────────────
 init();

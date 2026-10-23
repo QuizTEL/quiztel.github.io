@@ -96,29 +96,75 @@
             <svg class="w-7 h-7 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
             Study Mode
           </h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Select a course and week to view questions, verified answers, and explanations.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Select a course, choose your question paper type, and pick a week to view verified questions and answers.</p>
         </div>
-        <span id="q-count" class="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold self-start md:self-auto"></span>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="paper-type-badge" class="hidden inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"></span>
+          <span id="q-count" class="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold self-start md:self-auto"></span>
+        </div>
       </div>
 
-      <!-- Selectors Form -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+      <!-- Step 1: Course Selection -->
+      <div class="mb-5">
+        <label for="course-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">1</span>
+          Select NPTEL Course
+        </label>
+        <select id="course-select" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 font-medium transition">
+          <option value="" disabled selected>Loading courses...</option>
+        </select>
+      </div>
+
+      <!-- Step 2: Paper Type Selection (Current Year vs PYQ) -->
+      <div id="paper-type-section" class="mb-5">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">2</span>
+          Which question paper would you like to practice?
+        </label>
         
-        <div>
-          <label for="course-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">Select Course</label>
-          <select id="course-select" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3 font-medium transition">
-            <option value="" disabled selected>Loading courses...</option>
-          </select>
-        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="paper-type-options">
+          <!-- Current Year Option -->
+          <button type="button" id="paper-type-current-btn" data-paper-type="current" disabled class="paper-type-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 transition-all duration-200 opacity-50 cursor-not-allowed group flex items-start gap-3.5 select-none">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl flex-shrink-0 group-hover:scale-105 transition shadow-sm">
+              📘
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 transition">Current Year</span>
+                <span class="paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Access the regular weekly assignment questions.</p>
+            </div>
+          </button>
 
-        <div>
-          <label for="week-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">Select Week</label>
-          <select id="week-select" disabled class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3 font-medium transition disabled:bg-slate-100 dark:disabled:bg-slate-900/50 disabled:text-slate-400 dark:disabled:text-slate-600">
-            <option value="" disabled selected>— Select Course First —</option>
-          </select>
+          <!-- PYQ Option -->
+          <button type="button" id="paper-type-pyq-btn" data-paper-type="pyq" disabled class="paper-type-card text-left p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 transition-all duration-200 opacity-50 cursor-not-allowed group flex items-start gap-3.5 select-none">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl flex-shrink-0 group-hover:scale-105 transition shadow-sm">
+              📙
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 transition">Previous Year Questions (PYQ)</span>
+                <span class="paper-badge w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-white font-bold transition">✓</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Access previous-year questions organized by week.</p>
+            </div>
+          </button>
         </div>
-
+        <p id="paper-type-hint" class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 italic">Select a course above first to choose question paper type.</p>
       </div>
+
+      <!-- Step 3: Week Selection (Enabled after paper type is chosen) -->
+      <div>
+        <label for="week-select" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">3</span>
+          Select Week (Week 1 to Week 12)
+        </label>
+        <select id="week-select" disabled class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 font-medium transition disabled:bg-slate-100 dark:disabled:bg-slate-900/50 disabled:text-slate-400 dark:disabled:text-slate-600">
+          <option value="" disabled selected>— Select Course & Paper Type First —</option>
+        </select>
+      </div>
+
     </div>
 
     <!-- PDF Resources & Downloadable Solution Keys Area -->
@@ -140,8 +186,9 @@
       <div class="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600 dark:text-indigo-400">
         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
       </div>
-      <h3 class="text-lg font-bold text-slate-800">No Questions Displayed</h3>
-      <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Select a course and week from the dropdown controls above to view questions.</p>
+      <h3 id="empty-state-title" class="text-lg font-bold text-slate-800 dark:text-slate-100">No Questions Displayed</h3>
+      <p id="empty-state-desc" class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Select a course, paper type, and week from the controls above to view questions.</p>
+      <div id="empty-state-actions" class="mt-4 flex items-center justify-center gap-3 hidden"></div>
     </div>
 
     <!-- Questions Container -->
