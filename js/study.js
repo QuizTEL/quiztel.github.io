@@ -108,14 +108,7 @@ function onCourseSelected(cid, initialType = null) {
   // Course selected: enable paper type buttons and prompt user
   disablePaperTypeControls(false);
 
-  // Subscribe to weeks for this course
-  unsubStudyWeeks = subscribeToWeeks(cid, (weeks) => {
-    cachedWeeks = weeks;
-    if (selectedPaperType) {
-      populateWeekDropdown();
-    }
-  });
-
+  // If initialType provided, set it; otherwise wait for explicit user choice
   if (initialType === "pyq" || initialType === "current") {
     setPaperType(initialType);
   } else {
@@ -170,17 +163,17 @@ function setPaperType(type) {
   selectedPaperType = type;
   updatePaperTypeUI(type);
 
-  // Enable and populate Week dropdown
-  populateWeekDropdown();
+  const cid = courseSelect.value;
+  if (cid) {
+    if (unsubStudyWeeks) { unsubStudyWeeks(); unsubStudyWeeks = null; }
+    weekSelect.innerHTML = `<option value="" disabled selected>Loading ${type === "pyq" ? "PYQ" : "Current Year"} weeks...</option>`;
+    weekSelect.disabled = true;
 
-  // If a week is already selected, immediately re-load questions for that week with the new paper type
-  if (weekSelect.value) {
-    loadWeekContent();
-  } else {
-    showEmptyState(
-      `Select a Week for ${type === "pyq" ? "PYQs 📙" : "Current Year 📘"}`,
-      `Choose Week 1 through Week 12 from the dropdown below to view questions.`
-    );
+    // Real-time subscribe strictly to weeks belonging to this paperType
+    unsubStudyWeeks = subscribeToWeeks(cid, (weeks) => {
+      cachedWeeks = weeks;
+      populateWeekDropdown();
+    }, type);
   }
 }
 
@@ -226,10 +219,16 @@ function updatePaperTypeUI(type) {
 // ── 3. Week Selection ─────────────────────────────────────────
 function populateWeekDropdown() {
   const currentVal = weekSelect.value;
-  weekSelect.innerHTML = `<option value="" disabled selected>— Select Week (Week 1 to Week 12) —</option>`;
+  const modeTitle = selectedPaperType === "pyq" ? "PYQ 📙" : "Current Year 📘";
+  weekSelect.innerHTML = `<option value="" disabled selected>— Select ${modeTitle} Week (1 to 12) —</option>`;
 
   if (cachedWeeks.length === 0) {
+    weekSelect.innerHTML = `<option value="" disabled selected>— No ${selectedPaperType === "pyq" ? "PYQ" : "Current Year"} Weeks Available —</option>`;
     weekSelect.disabled = true;
+    showEmptyState(
+      `No ${modeTitle} Available Yet`,
+      `There are no weeks published under ${selectedPaperType === "pyq" ? "Previous Year Questions (PYQ)" : "Current Year"} for this course yet.`
+    );
     return;
   }
 
@@ -242,6 +241,13 @@ function populateWeekDropdown() {
 
   if (currentVal && cachedWeeks.some(w => w.id === currentVal)) {
     weekSelect.value = currentVal;
+    loadWeekContent();
+  } else {
+    weekSelect.value = "";
+    showEmptyState(
+      `Select a Week for ${modeTitle}`,
+      `Choose Week 1 through Week 12 from the dropdown below to view questions.`
+    );
   }
 
   weekSelect.disabled = false;

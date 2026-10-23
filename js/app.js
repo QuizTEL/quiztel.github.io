@@ -224,22 +224,46 @@ export function subscribeToCourses(callback) {
   });
 }
 
-/** Fetch all weeks for a course → [{ id, name }] */
-export async function loadWeeks(courseId) {
+/** Fetch all weeks for a course → [{ id, name, paperType, order }] */
+export async function loadWeeks(courseId, paperType = "all") {
   const ref  = collection(db, "courses", courseId, "weeks");
   const snap = await getDocs(query(ref));
-  const weeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  return weeks.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  let weeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  if (paperType === "current") {
+    weeks = weeks.filter(w => !w.paperType || w.paperType === "current");
+  } else if (paperType === "pyq") {
+    weeks = weeks.filter(w => w.paperType === "pyq");
+  }
+
+  return weeks.sort((a, b) => {
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order;
+    }
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
 }
 
 /** Real-time Subscribe to weeks of a course */
-export function subscribeToWeeks(courseId, callback) {
+export function subscribeToWeeks(courseId, callback, paperType = "all") {
   if (!courseId) return () => {};
   const ref = collection(db, "courses", courseId, "weeks");
   const q = query(ref);
   return onSnapshot(q, (snap) => {
-    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (paperType === "current") {
+      list = list.filter(w => !w.paperType || w.paperType === "current");
+    } else if (paperType === "pyq") {
+      list = list.filter(w => w.paperType === "pyq");
+    }
+
+    list.sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
     callback(list);
   }, (err) => {
     console.warn("Real-time weeks error:", err);
@@ -335,7 +359,7 @@ export function subscribeToResources(courseId, weekId, callback) {
 
 /** Fetch ALL questions across ALL weeks for a course → [{ ...question, weekId, weekName }] */
 export async function loadAllQuestions(courseId, paperType = "all") {
-  const weeks = await loadWeeks(courseId);
+  const weeks = await loadWeeks(courseId, paperType);
   const result = [];
   for (const week of weeks) {
     const qs = await loadQuestions(courseId, week.id, paperType);
@@ -344,10 +368,10 @@ export async function loadAllQuestions(courseId, paperType = "all") {
   return result;
 }
 
-/** Ensure Week 1 through Week 12 exist for a given course */
-export async function ensureTwelveWeeks(courseId) {
+/** Ensure Week 1 through Week 12 exist for a given course & paper type */
+export async function ensureTwelveWeeks(courseId, paperType = "current") {
   if (!courseId) return [];
-  const existingWeeks = await loadWeeks(courseId);
+  const existingWeeks = await loadWeeks(courseId, paperType);
   const created = [];
 
   for (let i = 1; i <= 12; i++) {
@@ -363,8 +387,8 @@ export async function ensureTwelveWeeks(courseId) {
 
     if (!exists) {
       const ref = collection(db, "courses", courseId, "weeks");
-      const docRef = await addDoc(ref, { name: weekLabel, order: i });
-      created.push({ id: docRef.id, name: weekLabel });
+      const docRef = await addDoc(ref, { name: weekLabel, paperType, order: i });
+      created.push({ id: docRef.id, name: weekLabel, paperType });
     }
   }
 

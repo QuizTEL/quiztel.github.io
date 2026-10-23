@@ -117,6 +117,12 @@ const setup12WeeksBtn         = document.getElementById("setup-12-weeks-btn");
 const editorTitle             = document.getElementById("editor-title");
 const importPaperCurrentLabel = document.getElementById("import-paper-current-label");
 const importPaperPyqLabel     = document.getElementById("import-paper-pyq-label");
+const addWeekSubmitBtn        = document.getElementById("add-week-submit-btn");
+const weekManagerModeLabel    = document.getElementById("week-manager-mode-label");
+const addWeekTargetMode       = document.getElementById("add-week-target-mode");
+const setup12TargetMode       = document.getElementById("setup-12-target-mode");
+const setup12BtnMode          = document.getElementById("setup-12-btn-mode");
+const importWeekModeLabel     = document.getElementById("import-week-mode-label");
 
 // PDF Resources DOM
 const addResourceForm    = document.getElementById("add-resource-form");
@@ -907,32 +913,84 @@ courseSelect.addEventListener("change", () => {
   const cid = courseSelect.value;
   deleteCourseBtn.disabled = !cid;
   deleteWeekBtn.disabled = true;
-  if (setup12WeeksBtn) setup12WeeksBtn.disabled = !cid;
 
   if (unsubWeeks) { unsubWeeks(); unsubWeeks = null; }
   if (unsubQuestions) { unsubQuestions(); unsubQuestions = null; }
   if (unsubResources) { unsubResources(); unsubResources = null; }
 
   weekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
-  weekSelect.disabled = !cid;
+  weekSelect.disabled = true;
   currentWeekQuestionsAll = [];
   questionsTableBody.innerHTML = "";
   if (qListCount) qListCount.textContent = "0";
-  if (adminCurrentCountBadge) adminCurrentCountBadge.textContent = "0";
-  if (adminPyqCountBadge) adminPyqCountBadge.textContent = "0";
+  if (adminCurrentCountBadge) adminCurrentCountBadge.textContent = "0 Weeks";
+  if (adminPyqCountBadge) adminPyqCountBadge.textContent = "0 Weeks";
   if (adminModeWeekStatus) adminModeWeekStatus.textContent = "Week not selected";
   if (resListCount) resListCount.textContent = "0";
 
-  if (!cid) return;
+  refreshAdminWeeks();
+});
 
-  // Real-time subscribe to weeks of selected course
+// Refresh weeks subscription & UI controls for the active paper type
+function refreshAdminWeeks() {
+  const cid = courseSelect.value;
+  if (unsubWeeks) { unsubWeeks(); unsubWeeks = null; }
+
+  if (!cid) {
+    weekSelect.innerHTML = `<option value="" disabled selected>— Select Course First —</option>`;
+    weekSelect.disabled = true;
+    deleteWeekBtn.disabled = true;
+    if (newWeekName) newWeekName.disabled = true;
+    if (addWeekSubmitBtn) addWeekSubmitBtn.disabled = true;
+    if (setup12WeeksBtn) setup12WeeksBtn.disabled = true;
+    return;
+  }
+
+  // Enable week creation & setup controls
+  if (newWeekName) newWeekName.disabled = false;
+  if (addWeekSubmitBtn) addWeekSubmitBtn.disabled = false;
+  if (setup12WeeksBtn) setup12WeeksBtn.disabled = false;
+
+  const modeTitle = currentAdminPaperType === "pyq" ? "Previous Year (PYQ)" : "Current Year";
+  weekSelect.innerHTML = `<option value="" disabled selected>Loading ${modeTitle} weeks...</option>`;
+  weekSelect.disabled = true;
+
+  // Real-time subscribe to weeks filtered by currentAdminPaperType
   unsubWeeks = subscribeToWeeks(cid, (weeks) => {
     const curWeekVal = weekSelect.value;
-    populateSelect(weekSelect, weeks, "— Select Week —");
-    if (curWeekVal) weekSelect.value = curWeekVal;
+    populateSelect(weekSelect, weeks, `— Select ${modeTitle} Week —`);
+    if (curWeekVal && weeks.some(w => w.id === curWeekVal)) {
+      weekSelect.value = curWeekVal;
+    } else {
+      weekSelect.value = "";
+      if (unsubQuestions) { unsubQuestions(); unsubQuestions = null; }
+      if (unsubResources) { unsubResources(); unsubResources = null; }
+      currentWeekQuestionsAll = [];
+      questionsTableBody.innerHTML = "";
+      if (qListCount) qListCount.textContent = "0";
+      if (adminModeWeekStatus) adminModeWeekStatus.textContent = "Week not selected";
+    }
+    weekSelect.disabled = false;
     deleteWeekBtn.disabled = !weekSelect.value;
-  });
-});
+
+    // Update active mode count badge
+    if (currentAdminPaperType === "pyq") {
+      if (adminPyqCountBadge) adminPyqCountBadge.textContent = `${weeks.length} Week${weeks.length === 1 ? '' : 's'}`;
+    } else {
+      if (adminCurrentCountBadge) adminCurrentCountBadge.textContent = `${weeks.length} Week${weeks.length === 1 ? '' : 's'}`;
+    }
+  }, currentAdminPaperType);
+
+  // Also query count for the other paper type to keep both badges in sync
+  const otherType = currentAdminPaperType === "pyq" ? "current" : "pyq";
+  loadWeeks(cid, otherType).then(otherWeeks => {
+    if (otherType === "pyq") {
+      if (adminPyqCountBadge) adminPyqCountBadge.textContent = `${otherWeeks.length} Week${otherWeeks.length === 1 ? '' : 's'}`;
+    } else {
+      if (adminCurrentCountBadge) adminCurrentCountBadge.textContent = `${otherWeeks.length} Week${otherWeeks.length === 1 ? '' : 's'}`;
+    }
+  }).catch(() => {});
+}
 
 // Week selection change in CMS tab
 weekSelect.addEventListener("change", () => {
@@ -952,13 +1010,11 @@ weekSelect.addEventListener("change", () => {
     currentWeekQuestionsAll = [];
     questionsTableBody.innerHTML = "";
     if (qListCount) qListCount.textContent = "0";
-    if (adminCurrentCountBadge) adminCurrentCountBadge.textContent = "0";
-    if (adminPyqCountBadge) adminPyqCountBadge.textContent = "0";
     if (resListCount) resListCount.textContent = "0";
     return;
   }
 
-  // Real-time subscribe to ALL questions of selected week so we can count both current and pyq
+  // Real-time subscribe to ALL questions of selected week
   unsubQuestions = subscribeToQuestions(cid, wid, (questions) => {
     currentWeekQuestionsAll = questions;
     renderQuestionsTable(questions);
@@ -975,38 +1031,64 @@ function setAdminPaperType(type) {
   currentAdminPaperType = type;
   if (type === "pyq") {
     if (adminModePyqBtn) {
-      adminModePyqBtn.className = "px-4 py-2 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center gap-2 bg-amber-500 text-white shadow-sm cursor-pointer";
+      adminModePyqBtn.className = "p-3.5 rounded-xl border-2 border-amber-500 bg-amber-50/80 text-left transition-all duration-200 flex flex-col justify-between cursor-pointer shadow-sm group select-none ring-2 ring-amber-500/20";
+      const t = adminModePyqBtn.querySelector("span.text-xs");
+      if (t) t.className = "text-xs font-extrabold text-amber-900";
     }
     if (adminModeCurrentBtn) {
-      adminModeCurrentBtn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 text-slate-600 hover:text-slate-900 cursor-pointer";
+      adminModeCurrentBtn.className = "p-3.5 rounded-xl border-2 border-slate-200 bg-white text-left transition-all duration-200 flex flex-col justify-between hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer group select-none";
+      const t = adminModeCurrentBtn.querySelector("span.text-xs");
+      if (t) t.className = "text-xs font-bold text-slate-700 group-hover:text-indigo-800";
     }
     if (adminModeBanner) {
-      adminModeBanner.className = "mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200/60 flex items-center justify-between text-xs text-amber-900";
+      adminModeBanner.className = "mt-4 p-2.5 rounded-xl bg-amber-50 border border-amber-200/60 flex items-center justify-between text-xs text-amber-900";
     }
     if (adminModeBannerText) {
-      adminModeBannerText.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Active Mode: <strong>Previous Year Questions (PYQ)</strong> (Archived past exam questions)`;
+      adminModeBannerText.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Active: <strong>Previous Year Questions (PYQ)</strong>`;
     }
+    if (weekManagerModeLabel) {
+      weekManagerModeLabel.textContent = "Previous Year Questions (PYQ)";
+      weekManagerModeLabel.className = "text-amber-600 font-extrabold";
+    }
+    if (addWeekTargetMode) addWeekTargetMode.textContent = "PYQ";
+    if (newWeekName) newWeekName.placeholder = "New PYQ Week Name (e.g. Week 1)";
+    if (setup12TargetMode) setup12TargetMode.textContent = "Previous Year (PYQ)";
+    if (setup12BtnMode) setup12BtnMode.textContent = "PYQ";
     if (editorTitle) {
       editorTitle.textContent = "Manual Question Editor (Previous Year Questions - PYQ)";
     }
   } else {
     if (adminModeCurrentBtn) {
-      adminModeCurrentBtn.className = "px-4 py-2 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center gap-2 bg-white text-indigo-700 shadow-sm cursor-pointer";
+      adminModeCurrentBtn.className = "p-3.5 rounded-xl border-2 border-indigo-600 bg-indigo-50/80 text-left transition-all duration-200 flex flex-col justify-between cursor-pointer shadow-sm group select-none ring-2 ring-indigo-500/20";
+      const t = adminModeCurrentBtn.querySelector("span.text-xs");
+      if (t) t.className = "text-xs font-extrabold text-indigo-900";
     }
     if (adminModePyqBtn) {
-      adminModePyqBtn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 text-slate-600 hover:text-slate-900 cursor-pointer";
+      adminModePyqBtn.className = "p-3.5 rounded-xl border-2 border-slate-200 bg-white text-left transition-all duration-200 flex flex-col justify-between hover:border-amber-400 hover:bg-amber-50/30 cursor-pointer group select-none";
+      const t = adminModePyqBtn.querySelector("span.text-xs");
+      if (t) t.className = "text-xs font-bold text-slate-700 group-hover:text-amber-800";
     }
     if (adminModeBanner) {
-      adminModeBanner.className = "mt-4 p-3 rounded-xl bg-indigo-50 border border-indigo-200/60 flex items-center justify-between text-xs text-indigo-900";
+      adminModeBanner.className = "mt-4 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200/60 flex items-center justify-between text-xs text-indigo-900";
     }
     if (adminModeBannerText) {
-      adminModeBannerText.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span> Active Mode: <strong>Current Year Questions</strong> (Standard weekly questions)`;
+      adminModeBannerText.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span> Active: <strong>Current Year Questions</strong>`;
     }
+    if (weekManagerModeLabel) {
+      weekManagerModeLabel.textContent = "Current Year";
+      weekManagerModeLabel.className = "text-indigo-600 font-extrabold";
+    }
+    if (addWeekTargetMode) addWeekTargetMode.textContent = "Current Year";
+    if (newWeekName) newWeekName.placeholder = "New Week Name (e.g. Week 1)";
+    if (setup12TargetMode) setup12TargetMode.textContent = "Current Year";
+    if (setup12BtnMode) setup12BtnMode.textContent = "Current Year";
     if (editorTitle) {
       editorTitle.textContent = "Manual Question Editor (Current Year)";
     }
   }
-  renderQuestionsTable(currentWeekQuestionsAll);
+
+  // Reload weeks for the newly selected paper type
+  refreshAdminWeeks();
 }
 
 if (adminModeCurrentBtn) {
@@ -1025,13 +1107,14 @@ if (setup12WeeksBtn) {
       showToast("Please select a Course first.", "warning");
       return;
     }
-    showSpinner("Verifying & creating Week 1 to Week 12...");
+    const modeLabel = currentAdminPaperType === "pyq" ? "Previous Year (PYQ)" : "Current Year";
+    showSpinner(`Verifying & creating Week 1 to Week 12 for ${modeLabel}...`);
     try {
-      const created = await ensureTwelveWeeks(cid);
+      const created = await ensureTwelveWeeks(cid, currentAdminPaperType);
       if (created.length > 0) {
-        showToast(`Created ${created.length} new week(s)! Week 1 through Week 12 complete.`, "success");
+        showToast(`Created ${created.length} new week(s) for ${modeLabel}! Week 1 through Week 12 complete.`, "success");
       } else {
-        showToast("All 12 weeks already exist for this course.", "info");
+        showToast(`All 12 weeks already exist for ${modeLabel}.`, "info");
       }
     } catch (err) {
       showToast("Error setting up weeks: " + err.message, "error");
@@ -1071,8 +1154,7 @@ deleteCourseBtn.addEventListener("click", async () => {
     await deleteDoc(doc(db, "courses", cid));
     showToast(`Course "${courseName}" deleted.`, "info");
     courseSelect.value = "";
-    weekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
-    weekSelect.disabled = true;
+    refreshAdminWeeks();
     deleteCourseBtn.disabled = true;
     deleteWeekBtn.disabled = true;
     questionsTableBody.innerHTML = "";
@@ -1091,12 +1173,21 @@ addWeekForm.addEventListener("submit", async (e) => {
     showToast("Please select a Course first.", "warning");
     return;
   }
+  if (!currentAdminPaperType) {
+    showToast("Please select Question Paper Type first.", "warning");
+    return;
+  }
   if (!name) return;
 
-  showSpinner("Adding Week...");
+  const modeLabel = currentAdminPaperType === "pyq" ? "PYQ" : "Current Year";
+  showSpinner(`Adding ${modeLabel} Week...`);
   try {
-    await addDoc(collection(db, "courses", cid, "weeks"), { name });
-    showToast(`"${name}" added!`, "success");
+    await addDoc(collection(db, "courses", cid, "weeks"), {
+      name,
+      paperType: currentAdminPaperType,
+      order: Date.now()
+    });
+    showToast(`"${name}" added to ${modeLabel}!`, "success");
     newWeekName.value = "";
   } catch (err) {
     showToast("Error adding week: " + err.message, "error");
@@ -1343,20 +1434,30 @@ function renderResourcesTable(resources) {
 }
 
 // ── Bulk Text Importer ─────────────────────────────────────────
-importCourseSelect.addEventListener("change", () => {
+function refreshImportWeeks() {
   const cid = importCourseSelect.value;
+  const paperRadio = document.querySelector("input[name='import-paper-type']:checked");
+  const pType = paperRadio ? paperRadio.value : "current";
+
+  if (importWeekModeLabel) {
+    importWeekModeLabel.textContent = pType === "pyq" ? "Previous Year (PYQ)" : "Current Year";
+    importWeekModeLabel.className = pType === "pyq" ? "text-amber-600 font-bold" : "text-indigo-600 font-bold";
+  }
+
   if (unsubImportWeeks) { unsubImportWeeks(); unsubImportWeeks = null; }
-  importWeekSelect.innerHTML = `<option value="" disabled selected>— Select Week —</option>`;
+  importWeekSelect.innerHTML = `<option value="" disabled selected>— Select ${pType === "pyq" ? "PYQ" : "Current Year"} Week —</option>`;
   importWeekSelect.disabled = !cid;
 
   if (!cid) return;
 
   unsubImportWeeks = subscribeToWeeks(cid, (weeks) => {
     const cur = importWeekSelect.value;
-    populateSelect(importWeekSelect, weeks, "— Select Week —");
-    if (cur) importWeekSelect.value = cur;
-  });
-});
+    populateSelect(importWeekSelect, weeks, `— Select ${pType === "pyq" ? "PYQ" : "Current Year"} Week —`);
+    if (cur && weeks.some(w => w.id === cur)) importWeekSelect.value = cur;
+  }, pType);
+}
+
+importCourseSelect.addEventListener("change", refreshImportWeeks);
 
 parseBtn.addEventListener("click", () => {
   const rawText = importTextInput.value.trim();
@@ -1392,7 +1493,7 @@ parseBtn.addEventListener("click", () => {
   }
 });
 
-// Import paper type radio change listener for visual selection
+// Import paper type radio change listener for visual selection & week re-filtering
 document.querySelectorAll("input[name='import-paper-type']").forEach(radio => {
   radio.addEventListener("change", () => {
     const val = radio.value;
@@ -1407,6 +1508,7 @@ document.querySelectorAll("input[name='import-paper-type']").forEach(radio => {
       importPaperPyqLabel?.classList.remove("border-amber-500", "bg-amber-50/70");
       importPaperPyqLabel?.classList.add("border-slate-200", "bg-white");
     }
+    refreshImportWeeks();
   });
 });
 

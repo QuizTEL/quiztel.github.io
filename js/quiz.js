@@ -121,14 +121,7 @@ function onCourseSelected(cid, initialType = null) {
   // Course selected: enable paper type buttons and prompt user
   disableQuizPaperControls(false);
 
-  // Subscribe to weeks of this course
-  unsubQuizWeeks = subscribeToWeeks(courseId, (weeks) => {
-    allWeeks = weeks;
-    if (selectedQuizPaperType) {
-      renderWeekPills(allWeeks);
-    }
-  });
-
+  // If initialType provided, set it; otherwise wait for explicit user choice
   if (initialType === "pyq" || initialType === "current") {
     setQuizPaperType(initialType);
   } else {
@@ -181,15 +174,25 @@ function setQuizPaperType(type) {
   selectedQuizPaperType = type;
   updateQuizPaperTypeUI(type);
 
-  // Render week pills for the selected course
-  if (allWeeks.length > 0) {
-    renderWeekPills(allWeeks);
-  } else {
-    weekContainer.innerHTML = `<p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">No weeks found for this course.</p>`;
-  }
+  const courseId = courseSelect.value;
+  if (courseId) {
+    if (unsubQuizWeeks) { unsubQuizWeeks(); unsubQuizWeeks = null; }
+    weekContainer.innerHTML = `<p class="text-xs text-slate-400 dark:text-slate-500 col-span-full text-center py-4">Loading ${type === "pyq" ? "PYQ" : "Current Year"} weeks...</p>`;
+    if (toggleAllBtn) toggleAllBtn.disabled = true;
 
-  if (toggleAllBtn) toggleAllBtn.disabled = false;
-  validateStart();
+    // Real-time subscribe strictly to weeks belonging to selected paper type
+    unsubQuizWeeks = subscribeToWeeks(courseId, (weeks) => {
+      allWeeks = weeks;
+      if (allWeeks.length > 0) {
+        renderWeekPills(allWeeks);
+        if (toggleAllBtn) toggleAllBtn.disabled = false;
+      } else {
+        weekContainer.innerHTML = `<p class="text-sm text-slate-400 dark:text-slate-500 col-span-full text-center py-4">No ${type === "pyq" ? "PYQ" : "Current Year"} weeks found for this course.</p>`;
+        if (toggleAllBtn) toggleAllBtn.disabled = true;
+      }
+      validateStart();
+    }, type);
+  }
 }
 
 function updateQuizPaperTypeUI(type) {
